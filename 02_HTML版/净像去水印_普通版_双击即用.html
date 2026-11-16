@@ -87,6 +87,10 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 .tool.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .tool svg{width:14px;height:14px}
 .tool-hint{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
+/* 选框读数 / 智能识别徽标（与后端版统一视觉规范） */
+.box-readout{font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.5;min-height:17px}
+.detect-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:20px;margin-top:10px;transition:all .25s}
+.detect-badge.ok{background:rgba(15,158,142,.11);color:var(--primary-dark)}
 
 /* 面板 */
 .panel-section{padding:18px 20px;border-bottom:1px solid var(--line)} .panel-section:last-child{border-bottom:none}
@@ -208,11 +212,11 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
           <div class="canvas-wrap"><canvas id="stage"></canvas></div>
           <div class="toolbar">
             <button class="tool active" id="toolRect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>框选水印</button>
-            <button class="tool" id="toolUndo" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>撤销一个框</button>
-            <button class="tool" id="toolClear" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除全部</button>
+            <button class="tool" id="toolClear" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除选框</button>
             <button class="tool" id="toolReselect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>更换图片</button>
-            <span class="tool-hint">在图片上按住鼠标拖拽，框住水印</span>
+            <span class="tool-hint">拖拽框选 · 可拖动/缩放微调 · 仅保留一个选框</span>
           </div>
+          <div class="box-readout" id="boxReadout">在图片上拖拽框选；拖动选框可移动，拉动四角/四边手柄可缩放</div>
         </div>
       </div>
     </div>
@@ -222,11 +226,13 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
       <div class="panel-section">
         <div class="panel-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2 15H2a2 2 0 1 1 0-4h.1"/></svg>修复方式</div>
         <select class="select" id="mode">
-          <option value="smart">智能修复（推荐）· 适合纯色/渐变背景</option>
+          <option value="auto">智能识别 · 自动选最合适的方式（推荐）</option>
+          <option value="smart">智能修复 · 纯色/渐变背景无痕扩散</option>
           <option value="average">快速填充 · 适合小面积水印</option>
           <option value="texture">纹理平移 · 适合重复纹理背景</option>
         </select>
         <div class="mode-desc" id="modeDesc"></div>
+        <div id="detectBadge" class="detect-badge ok" style="display:none"></div>
         <div class="opt-row" style="margin-top:10px"><span>修复后轻度锐化</span><div class="switch on" id="swSharpen"></div></div>
         <div class="opt-row" style="display:block">
           <div style="display:flex;justify-content:space-between"><span>修复力度（ iterations ）</span><span class="val" id="iterVal">标准</span></div>
@@ -315,6 +321,7 @@ const CONFIG = {
   sharpenAmount: 0.25,         // 轻度锐化强度（0=关闭）
   strengthLabel: { 1: '快速', 2: '标准', 3: '精细' },
   modeDesc: {
+    auto:    '框选后自动分析背景：纯色/渐变走无痕扩散，木纹/草地等重复纹理走纹理平移，无需手动判断。',
     smart:   '像“补齐拼图”一样，根据水印四周的颜色向内推算，最适合纯色、渐变或柔和背景。',
     average: '直接取边缘颜色平铺填充，速度最快，适合面积很小、背景单一的水印。',
     texture: '从水印旁边复制相似纹理过来，适合草地、砖墙等有重复图案的背景。'
@@ -326,8 +333,8 @@ const CONFIG = {
    状态
    ============================================================ */
 const S = {
-  img:null, scale:1, rects:[], drawing:false, start:null, cur:null,
-  resultData:null, mode:'smart', sharpen:true, iter:2
+  img:null, scale:1, rects:[], action:null, handle:null, orig:null, start:null, cur:null,
+  resultData:null, mode:'auto', effectiveMode:'smart', detection:null, sharpen:true, iter:2
 };
 const $ = id => document.getElementById(id);
 const stage=$('stage'), ctx=stage.getContext('2d',{willReadFrequently:true});
@@ -413,49 +420,146 @@ function loadImageSrc(src,name){
 // 注意：不递增 loadSeq，避免使刚通过校验的本次加载失效；在途旧加载由调用方递增的 seq 拦截
 function resetImageState(){
   S.rects=[];S.resultData=null;
-  S.drawing=false;S.start=null;S.cur=null;
+  S.action=null;S.orig=null;S.handle=null;S.start=null;S.cur=null;S.detection=null;
   $('compare').classList.remove('active');
+  clearDetect();updateReadout();
   closeSaveSheet();
 }
 
 /* ============================================================
-   画布绘制与框选
+   画布绘制与选框交互（单选框 + 拖拽移动 + 8向缩放手柄）
+   与后端对接版保持完全一致的交互与视觉规范：
+   - 全程只有 1 个选框，新框替换旧框
+   - 框内按下=移动，手柄按下=缩放，空白按下=重新画框
+   - 坐标统一为画布显示坐标，进入算法时再除以 S.scale 回到原图像素
    ============================================================ */
+const HANDLE=8,HIT=12,MIN_BOX=8,HANDLES=['nw','n','ne','e','se','s','sw','w'];
 function draw(){
   ctx.clearRect(0,0,stage.width,stage.height);
+  if(!baseImage)return;
   ctx.drawImage(baseImage,0,0,stage.width,stage.height);
-  S.rects.forEach(r=>drawRect(r,'rgba(15,158,142,.95)','rgba(15,158,142,.13)'));
-  if(S.drawing&&S.cur){
-    const r=normRect(S.start,S.cur);
-    drawRect(r,'rgba(91,110,225,1)','rgba(91,110,225,.16)');
+  const r=S.rects[0];
+  if(r){
+    drawBox(r);
+    for(const h of HANDLES){
+      const p=handlePos(r,h);
+      ctx.fillStyle='#fff';ctx.strokeStyle='#0F9E8E';ctx.lineWidth=2;
+      ctx.fillRect(p.x-HANDLE/2,p.y-HANDLE/2,HANDLE,HANDLE);
+      ctx.strokeRect(p.x-HANDLE/2,p.y-HANDLE/2,HANDLE,HANDLE);
+    }
   }
+  if(S.action==='draw'&&S.cur)drawBox(normRect(S.start,S.cur),'rgba(91,110,225,1)','rgba(91,110,225,.16)');
 }
-function drawRect(r,stroke,fill){
+function drawBox(r,stroke='rgba(15,158,142,.95)',fill='rgba(15,158,142,.13)'){
   ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.setLineDash([6,4]);
   ctx.strokeRect(r.x,r.y,r.w,r.h);ctx.fillStyle=fill;ctx.fillRect(r.x,r.y,r.w,r.h);ctx.setLineDash([]);
 }
 function normRect(a,b){return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(b.x-a.x),h:Math.abs(b.y-a.y)}}
-function pos(e){const b=stage.getBoundingClientRect();const cx=e.touches?e.touches[0].clientX:e.clientX,cy=e.touches?e.touches[0].clientY:e.clientY;return{x:(cx-b.left)*(stage.width/b.width),y:(cy-b.top)*(stage.height/b.height)}}
-function down(e){if(!baseImage)return;e.preventDefault();S.drawing=true;S.start=pos(e);S.cur=S.start}
-function move(e){if(!S.drawing)return;e.preventDefault();S.cur=pos(e);draw()}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+function pos(e){
+  const b=stage.getBoundingClientRect();
+  const t=e.touches&&e.touches[0]?e.touches[0]:(e.changedTouches&&e.changedTouches[0]?e.changedTouches[0]:e);
+  return{x:(t.clientX-b.left)*(stage.width/b.width),y:(t.clientY-b.top)*(stage.height/b.height)};
+}
+function handlePos(r,h){
+  const x=r.x,y=r.y,w=r.w,ht=r.h,cx=x+w/2,cy=y+ht/2;
+  return({nw:{x,y},n:{x:cx,y},ne:{x:x+w,y},e:{x:x+w,y:cy},se:{x:x+w,y:y+ht},s:{x:cx,y:y+ht},sw:{x,y:y+ht},w:{x,y:cy}})[h];
+}
+function hitHandle(p,r){for(const h of HANDLES){const q=handlePos(r,h);if(Math.abs(p.x-q.x)<=HIT&&Math.abs(p.y-q.y)<=HIT)return h}return null}
+function inBox(p,r){return p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h}
+function setCursor(c){stage.style.cursor=c}
+function updateReadout(){
+  const el=$('boxReadout');if(!el)return;
+  if(!S.rects.length){el.textContent='在图片上拖拽框选；拖动选框可移动，拉动四角/四边手柄可缩放';return}
+  const r=S.rects[0],ox=Math.round(r.x/S.scale),oy=Math.round(r.y/S.scale),ow=Math.round(r.w/S.scale),oh=Math.round(r.h/S.scale);
+  el.textContent=`选框（原图像素）：x ${ox} · y ${oy} · 宽 ${ow} × 高 ${oh}　|　拖动内部移动，拖动手柄缩放`;
+}
+function down(e){
+  if(!baseImage)return;e.preventDefault();
+  const p=pos(e),r=S.rects[0];
+  if(r){
+    const h=hitHandle(p,r);
+    if(h){S.action='resize';S.handle=h;S.orig={...r};S.start=p;return}
+    if(inBox(p,r)){S.action='move';S.orig={...r};S.start=p;setCursor('move');return}
+  }
+  S.action='draw';S.start=p;S.cur=p;S.rects=[];draw();
+}
+function move(e){
+  if(!baseImage)return;
+  const p=pos(e),r=S.rects[0];
+  if(!S.action){setCursor(r?(hitHandle(p,r)?'pointer':(inBox(p,r)?'move':'crosshair')):'crosshair');return}
+  e.preventDefault();
+  if(S.action==='draw'){S.cur=p;draw();return}
+  if(!S.orig)return;
+  if(S.action==='move'){
+    const o=S.orig;
+    S.rects=[{...o,x:clamp(o.x+p.x-S.start.x,0,stage.width-o.w),y:clamp(o.y+p.y-S.start.y,0,stage.height-o.h)}];
+  }else if(S.action==='resize'){S.rects=[resizeBox(S.orig,S.handle,p)]}
+  draw();updateReadout();
+}
+function resizeBox(o,h,p){
+  let x=o.x,y=o.y,w=o.w,ht=o.h,right=x+w,bottom=y+ht;
+  if(h.includes('w'))x=clamp(p.x,0,right-MIN_BOX);
+  if(h.includes('e'))right=clamp(p.x,x+MIN_BOX,stage.width);
+  if(h.includes('n'))y=clamp(p.y,0,bottom-MIN_BOX);
+  if(h.includes('s'))bottom=clamp(p.y,y+MIN_BOX,stage.height);
+  return{x,y,w:right-x,h:bottom-y};
+}
 function up(e){
-  if(!S.drawing)return;S.drawing=false;
-  if(S.cur){const r=normRect(S.start,S.cur);if(r.w>6&&r.h>6)S.rects.push(r)}
-  S.cur=null;draw();checkReady();
+  if(!S.action)return;
+  if(S.action==='draw'&&S.cur){const r=normRect(S.start,S.cur);if(r.w>=MIN_BOX&&r.h>=MIN_BOX)S.rects=[r]}
+  S.action=null;S.cur=null;S.orig=null;S.handle=null;setCursor('crosshair');
+  draw();checkReady();updateReadout();
+  if(S.rects.length)onBoxReady();
 }
 stage.addEventListener('mousedown',down);stage.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
 stage.addEventListener('touchstart',down,{passive:false});stage.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',up);
 
-$('toolRect').onclick=()=>toast('在图片上按住鼠标拖拽，框住水印');
-$('toolUndo').onclick=()=>{S.rects.pop();draw();checkReady();toast('已撤销上一个框')};
-$('toolClear').onclick=()=>{S.rects=[];draw();checkReady();toast('已清除全部框选')};
+$('toolRect').onclick=()=>toast('拖拽框选；框内拖动可移动，手柄可缩放，仅保留一个选框');
+$('toolClear').onclick=()=>{S.rects=[];draw();checkReady();updateReadout();clearDetect();toast('已清除选框')};
 $('toolReselect').onclick=()=>{resetAll(true)};
+
+/* 智能识别（纯前端，无需后端）：分析框内背景的局部方差与高频能量，
+   自动在 smart / texture 之间选择，减少手动判断。 */
+function localDetect(r){
+  const x=Math.max(0,Math.round(r.x/S.scale)-8),y=Math.max(0,Math.round(r.y/S.scale)-8);
+  const w=Math.min(baseImage.width-x,Math.round(r.w/S.scale)+16),h=Math.min(baseImage.height-y,Math.round(r.h/S.scale)+16);
+  if(w<4||h<4)return{label:'小区域',mode:'smart'};
+  const sample=ctx.getImageData(Math.round(x*S.scale),Math.round(y*S.scale),Math.max(1,Math.round(w*S.scale)),Math.max(1,Math.round(h*S.scale)));
+  const d=sample.data;let sr=0,sg=0,sb=0,s2=0,n=0,grad=0;
+  const W=sample.width,H=sample.height;
+  for(let j=1;j<H-1;j++)for(let i=1;i<W-1;i++){
+    const k=(j*W+i)*4;const l=(k-4),u=(k-W*4);
+    const r=d[k],g=d[k+1],b=d[k+2];
+    sr+=r;sg+=g;sb+=b;s2+=r*r+g*g+b*b;n++;
+    grad+=Math.abs(r-d[l])+Math.abs(g-d[l+1])+Math.abs(b-d[l+2])
+         +Math.abs(r-d[u])+Math.abs(g-d[u+1])+Math.abs(b-d[u+2]);
+  }
+  if(!n)return{label:'小区域',mode:'smart'};
+  const mr=sr/n,mg=sg/n,mb=sb/n;
+  const variance=Math.max(0,s2/n-(mr*mr+mg*mg+mb*mb)/1); // 三通道合并方差
+  const std=Math.sqrt(variance);
+  const edge=grad/n;
+  let mode,label;
+  if(edge>18&&std>16){mode='texture';label='重复纹理'}
+  else if(edge>10){mode='texture';label='纹理背景'}
+  else{mode='smart';label='纯色/渐变'}
+  return{label,mode,detail:{edge:Math.round(edge),std:Math.round(std)}};
+}
+function clearDetect(){S.detection=null;const b=$('detectBadge');if(b)b.style.display='none'}
+function onBoxReady(){
+  const badge=$('detectBadge');if(!badge)return;
+  if($('mode').value!=='auto'){badge.style.display='none';S.effectiveMode=$('mode').value;return}
+  const d=localDetect(S.rects[0]);S.detection=d;S.effectiveMode=d.mode;
+  badge.style.display='inline-flex';badge.className='detect-badge ok';
+  badge.textContent=`智能识别：${d.label} · 已自动选用「${d.mode==='texture'?'纹理平移':'智能修复'}」`;
+}
 
 /* ============================================================
    面板交互
    ============================================================ */
-$('mode').onchange=e=>{S.mode=e.target.value;$('modeDesc').textContent=CONFIG.modeDesc[S.mode]};
-$('modeDesc').textContent=CONFIG.modeDesc.smart;
+$('mode').onchange=e=>{S.mode=e.target.value;$('modeDesc').textContent=CONFIG.modeDesc[S.mode];onBoxReady()};
+$('modeDesc').textContent=CONFIG.modeDesc.auto;
 function bindSwitch(id,key){$(id).onclick=()=>{$(id).classList.toggle('on');S[key]=$(id).classList.contains('on')}}
 bindSwitch('swSharpen','sharpen');
 $('iterRange').oninput=e=>{S.iter=+e.target.value;$('iterVal').textContent=CONFIG.strengthLabel[S.iter]};
@@ -507,8 +611,10 @@ function repair(){
     x=Math.max(0,x);y=Math.max(0,y);
     w=Math.min(w,W-x);h=Math.min(h,H-y);
     if(w<=0||h<=0)return;
-    if(S.mode==='average') fillAverage(data,W,H,x,y,w,h);
-    else if(S.mode==='texture') fillTexture(cx,data,W,H,x,y,w,h);
+    // 智能识别模式下用 effectiveMode（由 onBoxReady 判定），其余用手动选择
+    const m=(S.mode==='auto')?S.effectiveMode:S.mode;
+    if(m==='average') fillAverage(data,W,H,x,y,w,h);
+    else if(m==='texture') fillTexture(cx,data,W,H,x,y,w,h);
     else fillLaplace(data,W,H,x,y,w,h,CONFIG.autoIterations[S.iter]);
   });
 
@@ -701,9 +807,10 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSaveSheet()});
 function resetAll(openNext){
   loadSeq++;                       // 让在途加载失效
   S.rects=[];S.resultData=null;
-  S.drawing=false;S.start=null;S.cur=null;
+  S.action=null;S.orig=null;S.handle=null;S.start=null;S.cur=null;S.detection=null;
   $('editor').classList.remove('active');$('compare').classList.remove('active');
   $('btnText').textContent='开始修复';
+  clearDetect();updateReadout();
   closeSaveSheet();
   dz.style.display='flex';
   try{$('fileInput').value=''}catch(_){}

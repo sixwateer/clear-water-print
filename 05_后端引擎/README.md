@@ -15,6 +15,19 @@
 
 > 完整架构、选择逻辑、回退条件、异常契约见仓库根目录的 `双引擎融合架构与集成文档.md`。
 
+## 本次更新（功能入口 / 修改点速查）
+
+| 你关心的点 | 去哪里看 / 改 | 说明 |
+|---|---|---|
+| 服务怎么启动 | `start.bat` 或 `python server.py` | 唯一入口是 `server.py`，末尾 `uvicorn.run(...)` 改端口 |
+| 智能识别（自动选方式） | `POST /api/v2/detect` + `engines/opencv_engine.py::detect_content` | 框选后识别纯色/渐变/纹理/照片，返回推荐引擎与方式 |
+| 纹理自然融合 | `engines/opencv_engine.py::inpaint(method="auto")` | 文字水印走"笔画级"修复保留木纹；色块走源块羽化融合 |
+| 前端引擎通俗说明 | `api_v2.py::get_engines` 的 `engine_guide` | 前端"选择引擎"区展示的名称/说明来自这里 |
+| 选框交互（单选/拖拽/缩放） | `02_HTML版/*.html` 的画布交互区 | 两页统一：只保留一个框、可拖动移动、8 向手柄缩放 |
+| 启动自检与依赖 | `start.bat` / `requirements.txt` | 首启自动装依赖；缺 LaMA 自动降级 OpenCV，闭环仍可用 |
+
+> 注意：前端两版（普通版 / 后端对接版）选框交互与视觉规范已保持一致；普通版纯前端即可用，后端版需先启动本服务。
+
 ## 快速开始（Windows）
 
 1. 双击 `start.bat`（首次运行会自动安装基础依赖）
@@ -75,13 +88,24 @@ pip install simple-lama-inpainting
 
 | 方法 | 路径 | 说明 |
 |---|---|---|
-| GET | `/api/v2/engines` | 引擎状态与回退顺序 |
+| GET | `/api/v2/engines` | 引擎状态、回退顺序、通俗名称说明（engine_guide） |
 | GET/POST | `/api/v2/templates` | 查看 / 注册固定水印模板 |
+| POST | `/api/v2/detect` | **智能识别**：分析框选区域内容类型并推荐修复方式 |
 | POST | `/api/v2/process` | 融合处理，返回 PNG + 元数据响应头 |
 | POST | `/api/v2/process/json` | 融合处理，仅返回 JSON（调试决策） |
 
 关键参数：`file`、`rects`、`source_url`、`template_id`、`authorized`、`prefer_engine`。
 响应头：`X-Engine-Used` / `X-Lossless` / `X-Elapsed-Ms` / `X-Trace`。
+
+### `POST /api/v2/detect` — 智能识别（本次新增）
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `file` | file | 原始图片 |
+| `rects` | str(JSON) | 水印框，取第一个框识别 |
+
+返回示例：`{"ok":true,"type":"texture","label":"重复纹理","confidence":0.85,
+"suggest_method":"texture","suggest_engine":"opencv","detail":{...}}`。前端"智能识别"选项据此自动推荐修复方式。
 
 ## 运行测试
 
@@ -90,7 +114,7 @@ cd 05_后端引擎   # 从项目根目录进入
 set PYTHONPATH=%CD%
 python tests\test_orchestrator.py
 ```
-覆盖授权终止、三步流水线、失败回退、指定引擎、Alpha无损、全部失败 6 项，应 6/6 通过。
+覆盖授权终止、三步流水线、失败回退、指定引擎、Alpha无损、全部失败、智能识别（纯色/渐变/木纹）、纹理融合质量（文字去除且保留纹理）共 11 项，应 11/11 通过。测试素材见 `06_素材与示例/测试输入/`。
 
 ## 目录结构
 
@@ -105,7 +129,9 @@ python tests\test_orchestrator.py
 │   ├── ai_pipeline.py      # 引擎B 三步流水线
 │   └── opencv_adapter.py   # 兜底
 ├── pipeline/               # 编排核心（状态/异常/上下文/Orchestrator）
-├── tests/                  # 回归测试
+├── tests/
+│   └── test_orchestrator.py # 回归测试（unittest 测试类，11 项）
+├── models/                 # LaMA 模型缓存（自动生成，已 gitignore）
 └── start.bat / requirements.txt
 ```
 

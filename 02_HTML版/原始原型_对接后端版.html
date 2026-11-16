@@ -79,6 +79,16 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 .tool.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .tool svg{width:15px;height:15px}
 .tool-hint{margin-left:auto;font-size:12px;color:var(--ink-3)}
+/* 选框读数 / 智能识别徽标 / 引擎说明（统一视觉规范） */
+.box-readout{font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.5;min-height:17px}
+.detect-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:20px;margin-top:10px;transition:all .25s}
+.detect-badge.loading{background:#EEF1F5;color:var(--ink-3)}
+.detect-badge.ok{background:rgba(15,158,142,.11);color:var(--primary-dark)}
+.detect-badge.warn{background:rgba(224,160,32,.12);color:#8A6A20}
+.engine-guide{margin-top:10px;padding:11px 13px;background:rgba(15,158,142,.05);border:1px solid rgba(15,158,142,.14);border-radius:10px;font-size:11.5px;color:var(--ink-2);line-height:1.65}
+.engine-guide b{color:var(--ink);font-size:12.5px}
+.engine-guide .ebadge{display:inline-block;font-size:10px;font-weight:700;padding:1px 7px;border-radius:10px;background:var(--primary);color:#fff;margin-left:5px;vertical-align:middle}
+.engine-guide .ebest{display:block;color:var(--primary-dark);margin-top:3px}
 
 /* 流程状态条 */
 .flow{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:22px;box-shadow:var(--shadow-s)}
@@ -226,9 +236,10 @@ footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
           <div class="toolbar">
             <button class="tool active" id="toolRect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>矩形框选</button>
             <button class="tool" id="toolClear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除标记</button>
-            <button class="tool" id="toolAuto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>自动识别</button>
-            <span class="tool-hint">在图片上拖拽框出水印区域</span>
+            <button class="tool" id="toolAuto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>自动定位</button>
+            <span class="tool-hint">拖拽框选 · 可拖动/缩放微调 · 仅保留一个选框</span>
           </div>
+          <div class="box-readout" id="boxReadout">在图片上拖拽框选；拖动选框可移动，拉动四角/四边手柄可缩放</div>
         </div>
       </div>
     </div>
@@ -242,15 +253,15 @@ footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
       <div class="panel-section">
         <div class="panel-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2 15H2a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 3.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6h.1A1.7 1.7 0 0 0 10.3 3V3a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 15 3.6"/></svg>修复引擎</div>
         <select class="select" id="engine">
-          <option value="auto">自动融合（A→无损→B→兜底）</option>
-          <option value="source">引擎A · 源头解析（需分享链接）</option>
-          <option value="alpha">反向Alpha · 固定模板无损</option>
-          <option value="ai">引擎B · AI修复流水线</option>
-          <option value="opencv">兜底 · OpenCV 快速修复</option>
+          <option value="smart">智能识别 · 自动选最合适的方式（推荐）</option>
+          <option value="auto">自动融合 · 无损优先，逐级回退</option>
+          <option value="source">源头解析 · 取原图无损（需分享链接）</option>
+          <option value="alpha">固定模板 · 像素级无损</option>
+          <option value="ai">AI 智能修复 · 复杂照片/大水印</option>
+          <option value="opencv">极速修复 · 纯色/纹理背景</option>
         </select>
-        <div id="fusionHint" style="font-size:11.5px;color:var(--ink-3);margin-top:8px;line-height:1.5">
-          自动模式优先走无损通道，失败后按 A → Alpha → B → 兜底 顺序回退。
-        </div>
+        <div class="engine-guide" id="engineGuide"></div>
+        <div id="detectBadge" class="detect-badge loading" style="display:none"></div>
         <div class="opt-row" style="margin-top:8px"><span>自动画质增强</span><div class="switch on" id="swEnhance"></div></div>
         <div class="opt-row"><span>人脸保真 (GFPGAN)</span><div class="switch" id="swFace"></div></div>
         <div class="opt-row" style="display:block">
@@ -322,8 +333,8 @@ const CONFIG = {
 
 /* ============ 状态 ============ */
 const S = {
-  img:null, file:null, scale:1, rects:[], drawing:false, start:null, cur:null,
-  resultData:null, enhance:true, face:false, strength:2,
+  img:null, file:null, scale:1, rects:[], action:null, handle:null, orig:null, start:null, cur:null,
+  resultData:null, enhance:true, face:false, strength:2, detection:null,
   serverOnline:false, defaultEngine:'opencv', engines:[]
 };
 
@@ -352,13 +363,14 @@ function loadFile(file){
       stage.width=Math.round(img.width*S.scale);
       stage.height=Math.round(img.height*S.scale);
       baseImage=img;
-      S.rects=[];
+      S.rects=[];S.action=null;S.orig=null;S.detection=null;
       $('fileInfo').textContent=`${file.name} · ${img.width}×${img.height}`;
       dz.style.display='none';
       $('editor').classList.add('active');
+      clearDetect();
       setFlow(2);
       draw();
-      checkReady();
+      checkReady();updateReadout();
       toast('图片已载入，请框选水印区域');
     };
     img.src=ev.target.result;
@@ -366,51 +378,172 @@ function loadFile(file){
   reader.readAsDataURL(file);
 }
 
-/* ============ 画布绘制 ============ */
+/* ============ 画布绘制与选框交互（单选框 + 拖拽移动 + 8向缩放手柄）============
+   交互约定（与普通版保持一致）：
+   - 全程只保留 1 个选框：新拖框 / 自动定位都会替换旧框
+   - 框内按下 = 移动；四角/四边手柄按下 = 缩放；空白处按下 = 重新画框
+   - 选框坐标一律为画布显示坐标，提交后端时再换算回原图像素
+   ================================================================================= */
+const HANDLE = 8;          // 手柄方块边长（显示像素）
+const HIT = 12;            // 命中半径
+const MIN_BOX = 8;         // 选框最小尺寸
+const HANDLES = ['nw','n','ne','e','se','s','sw','w'];
+
 function draw(){
   ctx.clearRect(0,0,stage.width,stage.height);
+  if(!baseImage)return;
   ctx.drawImage(baseImage,0,0,stage.width,stage.height);
-  // 已完成的框
-  S.rects.forEach(r=>drawRect(r,'rgba(15,158,142,.9)','rgba(15,158,142,.12)'));
-  // 正在拖的框
-  if(S.drawing&&S.cur){
-    const r={x:Math.min(S.start.x,S.cur.x),y:Math.min(S.start.y,S.cur.y),w:Math.abs(S.cur.x-S.start.x),h:Math.abs(S.cur.y-S.start.y)};
-    drawRect(r,'rgba(91,110,225,1)','rgba(91,110,225,.15)');
+  const r=S.rects[0];
+  if(r){
+    drawBox(r);
+    // 选中态手柄：单击选框后显示（这里始终显示，便于精确微调）
+    for(const h of HANDLES){
+      const p=handlePos(r,h);
+      ctx.fillStyle='#fff';ctx.strokeStyle='#0F9E8E';ctx.lineWidth=2;
+      ctx.fillRect(p.x-HANDLE/2,p.y-HANDLE/2,HANDLE,HANDLE);
+      ctx.strokeRect(p.x-HANDLE/2,p.y-HANDLE/2,HANDLE,HANDLE);
+    }
+  }
+  // 正在拖出的新框
+  if(S.action==='draw'&&S.cur){
+    const r=normRect(S.start,S.cur);
+    drawBox(r,'rgba(91,110,225,1)','rgba(91,110,225,.16)');
   }
 }
-function drawRect(r,stroke,fill){
+function drawBox(r,stroke='rgba(15,158,142,.95)',fill='rgba(15,158,142,.12)'){
   ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.setLineDash([6,4]);
   ctx.strokeRect(r.x,r.y,r.w,r.h);
   ctx.fillStyle=fill;ctx.fillRect(r.x,r.y,r.w,r.h);
   ctx.setLineDash([]);
 }
+function normRect(a,b){return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(b.x-a.x),h:Math.abs(b.y-a.y)}}
+function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
+// 关键修复①：把 CSS 显示坐标换算到画布内部分辨率（stage.width/b.width），
+// 解决"选择框与鼠标位置不对齐"——原实现直接用 clientX-left，图片被缩放时必然错位。
 function pos(e){
   const b=stage.getBoundingClientRect();
-  const x=(e.touches?e.touches[0].clientX:e.clientX)-b.left;
-  const y=(e.touches?e.touches[0].clientY:e.clientY)-b.top;
-  return{x,y};
+  const t=e.touches&&e.touches[0]?e.touches[0]:(e.changedTouches&&e.changedTouches[0]?e.changedTouches[0]:e);
+  return{
+    x:(t.clientX-b.left)*(stage.width/b.width),
+    y:(t.clientY-b.top)*(stage.height/b.height)
+  };
 }
-function down(e){if(!S.img)return;e.preventDefault();S.drawing=true;S.start=pos(e);S.cur=S.start}
-function move(e){if(!S.drawing)return;e.preventDefault();S.cur=pos(e);draw()}
+function handlePos(r,h){
+  const x=r.x,y=r.y,w=r.w,ht=r.h,cx=x+w/2,cy=y+ht/2;
+  return({nw:{x:x,y:y},n:{x:cx,y:y},ne:{x:x+w,y:y},e:{x:x+w,y:cy},
+          se:{x:x+w,y:y+ht},s:{x:cx,y:y+ht},sw:{x:x,y:y+ht},w:{x:x,y:cy}})[h];
+}
+function hitHandle(p,r){
+  for(const h of HANDLES){const q=handlePos(r,h);if(Math.abs(p.x-q.x)<=HIT&&Math.abs(p.y-q.y)<=HIT)return h}
+  return null;
+}
+function inBox(p,r){return p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h}
+function setCursor(c){stage.style.cursor=c}
+function updateReadout(){
+  const el=$('boxReadout');if(!el)return;
+  if(!S.rects.length){el.textContent='在图片上拖拽框选；拖动选框可移动，拉动四角/四边手柄可缩放';return}
+  const r=S.rects[0],ox=Math.round(r.x/S.scale),oy=Math.round(r.y/S.scale),ow=Math.round(r.w/S.scale),oh=Math.round(r.h/S.scale);
+  el.textContent=`选框（原图像素）：x ${ox} · y ${oy} · 宽 ${ow} × 高 ${oh}　|　拖动内部移动，拖动手柄缩放`;
+}
+function down(e){
+  if(!S.img)return;e.preventDefault();
+  const p=pos(e),r=S.rects[0];
+  if(r){
+    const h=hitHandle(p,r);
+    if(h){S.action='resize';S.handle=h;S.orig={...r};S.start=p;return}
+    if(inBox(p,r)){S.action='move';S.orig={...r};S.start=p;setCursor('move');return}
+  }
+  // 空白：开始新框（替换旧框，保证只有一个）
+  S.action='draw';S.start=p;S.cur=p;S.rects=[];draw();
+}
+function move(e){
+  if(!S.img)return;
+  const p=pos(e),r=S.rects[0];
+  if(!S.action){setCursor(r?(hitHandle(p,r)?'pointer':(inBox(p,r)?'move':'crosshair')):'crosshair');return}
+  e.preventDefault();
+  if(S.action==='draw'){S.cur=p;draw();return}
+  if(!S.orig)return;
+  if(S.action==='move'){
+    const o=S.orig;
+    S.rects=[{...o,x:clamp(o.x+p.x-S.start.x,0,stage.width-o.w),y:clamp(o.y+p.y-S.start.y,0,stage.height-o.h)}];
+  }else if(S.action==='resize'){
+    S.rects=[resizeBox(S.orig,S.handle,p)];
+  }
+  draw();updateReadout();
+}
+function resizeBox(o,h,p){
+  let x=o.x,y=o.y,w=o.w,ht=o.h;
+  let right=x+w,bottom=y+ht;
+  if(h.includes('w'))x=clamp(p.x,0,right-MIN_BOX);
+  if(h.includes('e'))right=clamp(p.x,x+MIN_BOX,stage.width);
+  if(h.includes('n'))y=clamp(p.y,0,bottom-MIN_BOX);
+  if(h.includes('s'))bottom=clamp(p.y,y+MIN_BOX,stage.height);
+  return{x,y,w:right-x,h:bottom-y};
+}
 function up(e){
-  if(!S.drawing)return;S.drawing=false;
-  if(S.cur){const r={x:Math.min(S.start.x,S.cur.x),y:Math.min(S.start.y,S.cur.y),w:Math.abs(S.cur.x-S.start.x),h:Math.abs(S.cur.y-S.start.y)};
-    if(r.w>8&&r.h>8)S.rects.push(r);}
-  S.cur=null;draw();checkReady();
+  if(!S.action)return;
+  if(S.action==='draw'&&S.cur){
+    const r=normRect(S.start,S.cur);
+    if(r.w>=MIN_BOX&&r.h>=MIN_BOX)S.rects=[r];
+  }
+  S.action=null;S.cur=null;S.orig=null;S.handle=null;
+  setCursor('crosshair');draw();checkReady();updateReadout();
+  if(S.rects.length)onBoxReady();
 }
 stage.addEventListener('mousedown',down);stage.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
 stage.addEventListener('touchstart',down,{passive:false});stage.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',up);
 
-$('toolRect').onclick=()=>{toast('矩形框选：在图上拖拽框出水印')};
-$('toolClear').onclick=()=>{S.rects=[];draw();checkReady();toast('已清除所有标记')};
+$('toolRect').onclick=()=>{toast('拖拽框选；框内拖动可移动，手柄可缩放，仅保留一个选框')};
+$('toolClear').onclick=()=>{S.rects=[];draw();checkReady();updateReadout();clearDetect();toast('已清除选框')};
 $('toolAuto').onclick=()=>{
   if(!S.img)return;
   const w=stage.width*CONFIG.autoBoxRatio,h=stage.height*CONFIG.autoBoxRatio*0.5;
   S.rects=[{x:stage.width-w-16,y:stage.height-h-16,w,h}];
-  draw();checkReady();toast('已自动识别疑似水印区域（示意），可手动调整');
+  draw();checkReady();updateReadout();onBoxReady();
+  toast('已自动定位疑似水印区域，可拖动/缩放微调');
 };
 
+/* 选框就绪回调：智能识别模式下自动识别内容类型并推荐引擎 */
+async function onBoxReady(){
+  const badge=$('detectBadge');
+  if($('engine').value!=='smart'||!S.rects.length){badge.style.display='none';return}
+  const r=S.rects[0];
+  const rects=[{x:Math.round(r.x/S.scale),y:Math.round(r.y/S.scale),w:Math.round(r.w/S.scale),h:Math.round(r.h/S.scale)}];
+  badge.style.display='inline-flex';badge.className='detect-badge loading';badge.textContent='智能识别中…';
+  try{
+    if(!S.serverOnline)await checkServer();
+    if(!S.serverOnline)throw new Error('offline');
+    const fd=new FormData();fd.append('file',S.file);fd.append('rects',JSON.stringify(rects));
+    const resp=await fetch(`${CONFIG.apiBase}/api/v2/detect`,{method:'POST',body:fd});
+    if(!resp.ok)throw new Error('HTTP '+resp.status);
+    const d=await resp.json();
+    S.detection=d;
+    badge.className='detect-badge ok';
+    badge.textContent=`识别：${d.label} · 建议${d.suggest_engine==='ai'?'AI 智能修复':'极速修复'}`;
+  }catch(err){
+    badge.className='detect-badge warn';
+    badge.textContent='智能识别不可用，将按自动融合处理';
+    S.detection=null;
+  }
+}
+
 /* ============ 面板交互 ============ */
+// 引擎说明（通俗名称 + 用途），与后端 /api/v2/engines 的 engine_guide 一致
+const ENGINE_GUIDE={
+  smart:{name:'智能识别',badge:'推荐',desc:'框选后自动判断水印区域是纯色、渐变还是纹理照片，再选最合适的修复方式，最省心。',best_for:'不确定水印类型时'},
+  auto:{name:'智能融合',badge:'稳妥',desc:'优先走无损通道，失败后按 源头 → 无损 → AI → 极速 顺序回退。',best_for:'追求稳妥、可接受逐级尝试'},
+  source:{name:'源头解析',badge:'无损',desc:'用分享链接直接取平台原图，完全没有画质损失，需填入可解析的分享链接。',best_for:'有自己内容的分享链接'},
+  alpha:{name:'固定模板无损',badge:'无损',desc:'对已知样式的固定水印做像素级逆运算，理论上零损伤，需先在后端注册模板。',best_for:'样式固定的平台水印'},
+  ai:{name:'AI 智能修复',badge:'高质量',desc:'大模型重建水印区域背景，复杂照片和大面积水印效果最好，需安装模型。',best_for:'复杂纹理、大面积水印'},
+  opencv:{name:'极速修复',badge:'秒级',desc:'零依赖秒级完成，纯色/渐变做无痕扩散，木纹等重复纹理做自然融合。',best_for:'纯色/渐变/重复纹理背景'}
+};
+function updateEngineGuide(){
+  const g=ENGINE_GUIDE[$('engine').value]||ENGINE_GUIDE.auto;
+  $('engineGuide').innerHTML=`<b>${g.name}</b><span class="ebadge">${g.badge}</span><br>${g.desc}<span class="ebest">适合：${g.best_for}</span>`;
+}
+$('engine').onchange=()=>{updateEngineGuide();onBoxReady()};
+updateEngineGuide();
+function clearDetect(){S.detection=null;const b=$('detectBadge');b.style.display='none';b.textContent=''}
 function bindSwitch(id,key){$(id).onclick=()=>{$(id).classList.toggle('on');S[key]=$(id).classList.contains('on')}}
 bindSwitch('swEnhance','enhance');bindSwitch('swFace','face');
 $('strength').oninput=e=>{S.strength=+e.target.value;$('strengthVal').textContent=CONFIG.strengthLabel[S.strength]};
@@ -458,6 +591,8 @@ async function callBackend(){
   }));
   const sel=$('engine').value;
   const auth=$('authCheck').checked;
+  // smart/auto 不指定偏好引擎，让后端按识别结果/回退链自行决策
+  const prefer=(sel==='smart'||sel==='auto')?'auto':sel;
 
   const fd=new FormData();
   fd.append('file',S.file);
@@ -466,7 +601,7 @@ async function callBackend(){
   fd.append('enhance',String(S.enhance));
   fd.append('face',String(S.face));
   fd.append('authorized',String(auth));
-  fd.append('prefer_engine',sel);
+  fd.append('prefer_engine',prefer);
 
   const endpoint=CONFIG.apiVersion==='v2'?'/api/v2/process':'/api/inpaint';
   const resp=await fetch(`${CONFIG.apiBase}${endpoint}`,{method:'POST',body:fd});
@@ -545,7 +680,7 @@ async function checkServer(){
       if(opt) opt.disabled=!on(k);
     });
     const srcOpt=document.querySelector('#engine option[value="source"]');
-    if(srcOpt && !on('source')) srcOpt.textContent='引擎A · 需配置解析服务';
+    if(srcOpt && !on('source')) srcOpt.textContent='源头解析 · 需配置解析服务';
   }catch(err){
     S.serverOnline=false;
     el.className='server-status offline';
@@ -566,9 +701,10 @@ function downloadResult(){
   toast('已导出修复结果');
 }
 function resetAll(){
-  S.img=null;S.rects=[];S.resultData=null;
+  S.img=null;S.rects=[];S.resultData=null;S.action=null;S.orig=null;S.detection=null;
   $('editor').classList.remove('active');$('compare').classList.remove('active');
   dz.style.display='flex';$('fileInput').value='';$('fileInfo').textContent='尚未选择文件';
+  clearDetect();updateReadout();
   setFlow(1);checkReady();window.scrollTo({top:0,behavior:'smooth'});
 }
 let toastTimer;
