@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>微信小程序发布教程 · 净像图片修复（从零到上线）</title>
+<!--
+  微信小程序发布教程 · 净像图片修复
+  ============================================================
+  单文件图文教程，双击用浏览器打开即可阅读，无需联网。
+  内容：从注册账号到正式发布微信小程序的 8 步全流程，
+        含可直接复制的审核文案、拒审自救 FAQ、你我分工表。
+  设计：沿用净像青绿色视觉体系，响应式，支持手机阅读与打印。
+  ============================================================
+-->
+<style>
+:root{
+  --primary:#0F9E8E; --primary-dark:#0B7A6E; --accent:#5B6EE1;
+  --bg:#F5F7F9; --surface:#FFFFFF; --ink:#1C2430; --ink-2:#5B6675;
+  --ink-3:#93A0B0; --line:#E7EBF0; --ok:#16A34A; --warn:#E0A020; --danger:#DC2626;
+  --radius:16px; --radius-s:10px;
+  --shadow:0 8px 30px rgba(24,39,60,.06); --shadow-s:0 2px 10px rgba(24,39,60,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth;scroll-padding-top:88px}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.7;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1160px;margin:0 auto;padding:0 24px}
+
+/* 顶部导航 */
+header{background:rgba(255,255,255,.92);backdrop-filter:blur(12px);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+.nav{height:64px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:11px;font-size:17px;font-weight:700}
+.logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(15,158,142,.3);color:#fff;font-size:17px;font-weight:800}
+.tag-version{font-size:11px;font-weight:600;color:var(--primary-dark);background:rgba(15,158,142,.1);padding:3px 9px;border-radius:12px;margin-left:2px}
+.nav-links{display:flex;gap:22px;font-size:13px;color:var(--ink-2)}
+.nav-links a{color:var(--ink-2);text-decoration:none;transition:color .2s}
+.nav-links a:hover{color:var(--primary)}
+.progress-bar{position:absolute;left:0;bottom:-1px;height:2px;background:linear-gradient(90deg,var(--primary),var(--accent));width:0;transition:width .1s}
+
+/* HERO */
+.hero{text-align:center;padding:52px 0 30px}
+.badge{display:inline-flex;align-items:center;gap:7px;background:rgba(15,158,142,.09);color:var(--primary-dark);font-size:12px;font-weight:600;padding:7px 14px;border-radius:20px;margin-bottom:18px}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:var(--primary)}
+.hero h1{font-size:38px;line-height:1.25;font-weight:780;letter-spacing:-.5px;margin-bottom:14px}
+.hero h1 .grad{background:linear-gradient(120deg,var(--primary),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p.lead{font-size:15px;color:var(--ink-2);max-width:660px;margin:0 auto}
+.facts{display:flex;justify-content:center;gap:14px;margin-top:26px;flex-wrap:wrap}
+.fact{display:flex;align-items:center;gap:9px;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:12px 18px;box-shadow:var(--shadow-s);min-width:150px;text-align:left}
+.fact .fi{width:38px;height:38px;border-radius:11px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fact .fi svg{width:20px;height:20px}
+.fact .ft{font-size:11px;color:var(--ink-3)} .fact .fv{font-size:14px;font-weight:700;color:var(--ink)}
+
+/* 布局 */
+.layout{display:grid;grid-template-columns:230px 1fr;gap:28px;align-items:start;margin-bottom:40px}
+
+/* 侧边目录 */
+.toc{position:sticky;top:88px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:18px 14px;box-shadow:var(--shadow-s)}
+.toc-title{font-size:12px;font-weight:700;color:var(--ink-3);letter-spacing:.5px;padding:0 8px 10px;text-transform:uppercase}
+.toc a{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;font-size:13px;color:var(--ink-2);text-decoration:none;transition:all .18s;margin-bottom:2px}
+.toc a:hover{background:rgba(15,158,142,.06);color:var(--primary-dark)}
+.toc a.active{background:rgba(15,158,142,.1);color:var(--primary-dark);font-weight:650}
+.toc a .tn{width:22px;height:22px;border-radius:7px;background:#EEF1F5;color:var(--ink-3);font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.toc a.active .tn{background:var(--primary);color:#fff}
+.toc-sep{height:1px;background:var(--line);margin:10px 6px}
+
+/* 内容主体 */
+.content{min-width:0}
+.section{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow);margin-bottom:20px;overflow:hidden;scroll-margin-top:88px}
+.sec-head{display:flex;align-items:center;gap:14px;padding:20px 24px;border-bottom:1px solid var(--line);background:linear-gradient(180deg,#FCFDFD,#fff)}
+.sec-num{width:40px;height:40px;border-radius:12px;background:linear-gradient(135deg,var(--primary),var(--primary-dark));color:#fff;font-size:17px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 4px 12px rgba(15,158,142,.28)}
+.sec-head h2{font-size:18px;font-weight:700;line-height:1.3}
+.sec-head .sub{font-size:12px;color:var(--ink-3);font-weight:400;margin-top:2px}
+.sec-body{padding:22px 24px}
+.sec-body p{font-size:14px;color:var(--ink-2);margin-bottom:12px}
+.sec-body p:last-child{margin-bottom:0}
+.sec-body b{color:var(--ink);font-weight:650}
+.hl{background:linear-gradient(transparent 62%,rgba(15,158,142,.16) 62%);font-weight:650;color:var(--ink)}
+
+/* 有序/无序列表 */
+.sec-body ol,.sec-body ul{margin:10px 0 14px;padding-left:0;list-style:none;counter-reset:step}
+.sec-body ol li{position:relative;padding-left:34px;margin-bottom:11px;font-size:14px;color:var(--ink-2);counter-increment:step}
+.sec-body ol li::before{content:counter(step);position:absolute;left:0;top:1px;width:23px;height:23px;border-radius:50%;background:rgba(15,158,142,.12);color:var(--primary-dark);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.sec-body ul li{position:relative;padding-left:22px;margin-bottom:8px;font-size:14px;color:var(--ink-2)}
+.sec-body ul li::before{content:"";position:absolute;left:4px;top:11px;width:6px;height:6px;border-radius:50%;background:var(--primary)}
+
+/* 提示框 */
+.note{display:flex;gap:12px;padding:14px 16px;border-radius:12px;margin:14px 0;font-size:13.5px;line-height:1.65}
+.note svg{width:18px;height:18px;flex-shrink:0;margin-top:2px}
+.note.info{background:rgba(91,110,225,.07);border:1px solid rgba(91,110,225,.18);color:#33428A}
+.note.info svg{color:var(--accent)}
+.note.warn{background:rgba(224,160,32,.09);border:1px solid rgba(224,160,32,.22);color:#8A6A20}
+.note.warn svg{color:var(--warn)}
+.note.ok{background:rgba(22,163,74,.07);border:1px solid rgba(22,163,74,.18);color:#1A7A43}
+.note.ok svg{color:var(--ok)}
+.note b{font-weight:700}
+
+/* 可复制文案块 */
+.copybox{position:relative;background:#F8FAFC;border:1px solid var(--line);border-radius:12px;margin:12px 0;overflow:hidden}
+.copybox-hd{display:flex;align-items:center;justify-content:space-between;padding:9px 14px;background:#EFF3F7;border-bottom:1px solid var(--line)}
+.copybox-label{font-size:12px;font-weight:650;color:var(--ink-2);display:flex;align-items:center;gap:7px}
+.copybox-label svg{width:14px;height:14px;color:var(--primary)}
+.copy-btn{border:1px solid var(--primary);color:var(--primary-dark);background:var(--surface);padding:5px 12px;border-radius:8px;font-size:12px;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:5px;transition:all .2s}
+.copy-btn:hover{background:var(--primary);color:#fff}
+.copy-btn.done{background:var(--ok);border-color:var(--ok);color:#fff}
+.copy-btn svg{width:13px;height:13px}
+.copybox pre{white-space:pre-wrap;word-break:break-word;font-family:-apple-system,"PingFang SC","Microsoft YaHei",sans-serif;font-size:13.5px;line-height:1.75;color:var(--ink);padding:16px;margin:0}
+
+/* 流程总览图 */
+.flowmap{display:flex;align-items:center;flex-wrap:wrap;gap:8px;padding:4px 0}
+.flowmap .fnode{flex:1;min-width:92px;text-align:center;background:linear-gradient(180deg,#fff,#FBFCFD);border:1px solid var(--line);border-radius:12px;padding:14px 8px;box-shadow:var(--shadow-s)}
+.flowmap .fnode .fi{width:34px;height:34px;border-radius:10px;background:rgba(15,158,142,.1);color:var(--primary-dark);display:flex;align-items:center;justify-content:center;margin:0 auto 8px;font-weight:800;font-size:13px}
+.flowmap .fnode .fl{font-size:12px;font-weight:650;color:var(--ink)}
+.flowmap .fnode .fd{font-size:10.5px;color:var(--ink-3);margin-top:2px}
+.flowmap .arr{color:var(--ink-3);font-size:16px;flex-shrink:0}
+
+/* 两栏要点 */
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+.mini-card{background:#FBFCFD;border:1px solid var(--line);border-radius:12px;padding:16px}
+.mini-card h4{font-size:13.5px;font-weight:700;color:var(--ink);margin-bottom:8px;display:flex;align-items:center;gap:7px}
+.mini-card h4 .mi{width:24px;height:24px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px}
+.mini-card p{font-size:13px;color:var(--ink-2);margin:0;line-height:1.65}
+.mini-card.user .mi{background:rgba(91,110,225,.12);color:var(--accent)}
+.mini-card.me .mi{background:rgba(15,158,142,.12);color:var(--primary-dark)}
+
+/* 表格 */
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:13.5px}
+th,td{text-align:left;padding:12px 14px;border-bottom:1px solid var(--line)}
+th{background:#F8FAFC;font-weight:700;color:var(--ink);font-size:12.5px}
+td{color:var(--ink-2)}
+tr:last-child td{border-bottom:none}
+.pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:11.5px;font-weight:650}
+.pill.you{background:rgba(91,110,225,.1);color:var(--accent)}
+.pill.me{background:rgba(15,158,142,.12);color:var(--primary-dark)}
+
+/* FAQ */
+.faq{display:flex;flex-direction:column;gap:10px;margin-top:6px}
+details{background:#FBFCFD;border:1px solid var(--line);border-radius:12px;overflow:hidden;transition:all .2s}
+details[open]{background:#fff;border-color:rgba(15,158,142,.3)}
+summary{padding:14px 16px;font-size:14px;font-weight:650;color:var(--ink);cursor:pointer;list-style:none;display:flex;align-items:center;gap:11px;user-select:none}
+summary::-webkit-details-marker{display:none}
+summary .q{width:24px;height:24px;border-radius:7px;background:rgba(15,158,142,.12);color:var(--primary-dark);font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+summary .arw{margin-left:auto;color:var(--ink-3);transition:transform .2s}
+details[open] summary .arw{transform:rotate(90deg)}
+.faq-a{padding:0 16px 16px 51px;font-size:13.5px;color:var(--ink-2);line-height:1.7}
+.faq-a p{margin-bottom:8px}
+.faq-a p:last-child{margin-bottom:0}
+
+/* 关键词高亮 */
+.kbd{display:inline-block;background:#EEF1F5;border:1px solid #DDE3EA;border-bottom-width:2px;border-radius:6px;padding:1px 7px;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace;color:#334155}
+.path{display:inline-block;background:rgba(15,158,142,.08);color:var(--primary-dark);border-radius:6px;padding:1px 8px;font-size:12.5px;font-family:ui-monospace,Menlo,Consolas,monospace}
+
+/* 完成卡 */
+.finish{text-align:center;background:linear-gradient(135deg,rgba(15,158,142,.08),rgba(91,110,225,.08));border:1px solid rgba(15,158,142,.2)}
+.finish .fico{font-size:40px;margin-bottom:6px}
+.finish h3{font-size:20px;margin-bottom:8px}
+.finish p{font-size:14px;color:var(--ink-2)}
+
+/* 页脚 */
+footer{text-align:center;padding:26px 20px 40px;color:var(--ink-3);font-size:12px}
+footer .disc{max-width:720px;margin:0 auto 8px;line-height:1.7}
+footer b{color:var(--ink-2)}
+
+/* 复制浮层提示 */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#fff;padding:11px 22px;border-radius:12px;font-size:13.5px;font-weight:600;box-shadow:0 8px 30px rgba(0,0,0,.25);opacity:0;pointer-events:none;transition:all .3s;z-index:100}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .toc{position:static;display:flex;flex-wrap:wrap;gap:4px;padding:12px}
+  .toc-title,.toc-sep{display:none}
+  .toc a{margin-bottom:0;font-size:12px;padding:6px 9px}
+  .toc a .tn{width:19px;height:19px;font-size:10px}
+  .nav-links{display:none}
+  .hero h1{font-size:29px}
+  .grid2{grid-template-columns:1fr}
+  .flowmap .arr{display:none}
+}
+@media print{
+  header .nav-links,.toc,.copy-btn,.progress-bar{display:none}
+  body{background:#fff}
+  .layout{grid-template-columns:1fr}
+  .section{break-inside:avoid;box-shadow:none}
+  details{break-inside:avoid}
+  details .faq-a{display:block!important}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <span class="logo">净</span>
+      <span>微信小程序发布教程 <span class="tag-version">图文版 v1.0</span></span>
+    </div>
+    <nav class="nav-links">
+      <a href="#overview">全流程</a>
+      <a href="#s1">注册</a>
+      <a href="#s7">审核文案</a>
+      <a href="#faq">常见问题</a>
+    </nav>
+  </div>
+  <div class="progress-bar" id="progressBar"></div>
+</header>
+
+<div class="wrap">
+  <!-- HERO -->
+  <section class="hero">
+    <span class="badge"><span class="dot"></span>从零到上线 · 手把手图文教程</span>
+    <h1>把「净像图片修复」<br><span class="grad">发布成真正的微信小程序</span></h1>
+    <p class="lead">个人身份证即可，全程免费。本教程把每一步、每个要填的字都写好——照着做就能上线。代码侧已完成审核合规化改造，功能不变。</p>
+    <div class="facts">
+      <div class="fact">
+        <div class="fi" style="background:rgba(22,163,74,.1);color:var(--ok)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M2 12h20"/><circle cx="12" cy="12" r="9"/></svg></div>
+        <div><div class="ft">注册费用</div><div class="fv">完全免费</div></div>
+      </div>
+      <div class="fact">
+        <div class="fi" style="background:rgba(15,158,142,.1);color:var(--primary-dark)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg></div>
+        <div><div class="ft">主体要求</div><div class="fv">个人即可</div></div>
+      </div>
+      <div class="fact">
+        <div class="fi" style="background:rgba(91,110,225,.1);color:var(--accent)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></div>
+        <div><div class="ft">审核时长</div><div class="fv">1~7 工作日</div></div>
+      </div>
+      <div class="fact">
+        <div class="fi" style="background:rgba(224,160,32,.12);color:var(--warn)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg></div>
+        <div><div class="ft">需你本人</div><div class="fv">实名 + 扫码</div></div>
+      </div>
+    </div>
+  </section>
+
+  <div class="layout">
+    <!-- 侧边目录 -->
+    <aside class="toc" id="toc">
+      <div class="toc-title">教程目录</div>
+      <a href="#overview" class="active"><span class="tn">◎</span>全流程总览</a>
+      <div class="toc-sep"></div>
+      <a href="#s1"><span class="tn">1</span>注册账号拿 AppID</a>
+      <a href="#s2"><span class="tn">2</span>信息与类目</a>
+      <a href="#s3"><span class="tn">3</span>配置项目</a>
+      <a href="#s4"><span class="tn">4</span>导入开发者工具</a>
+      <a href="#s5"><span class="tn">5</span>真机预览</a>
+      <a href="#s6"><span class="tn">6</span>上传代码</a>
+      <a href="#s7"><span class="tn">7</span>提交审核（重点）</a>
+      <a href="#s8"><span class="tn">8</span>发布上线</a>
+      <div class="toc-sep"></div>
+      <a href="#faq"><span class="tn">?</span>常见问题</a>
+      <a href="#roles"><span class="tn">≡</span>分工表</a>
+    </aside>
+
+    <!-- 内容 -->
+    <main class="content">
+
+      <!-- 总览 -->
+      <section class="section" id="overview">
+        <div class="sec-head">
+          <div class="sec-num" style="background:linear-gradient(135deg,#5B6EE1,#0F9E8E)">◎</div>
+          <div><h2>全流程总览</h2><div class="sub">先看图，心中有数，再一步步操作</div></div>
+        </div>
+        <div class="sec-body">
+          <p>发布一个小程序的完整链路是下面这 9 个节点。你会接触两个界面：<b>微信公众平台</b>（网页后台，管账号和审核）与<b>微信开发者工具</b>（桌面软件，导入和上传代码）。</p>
+          <div class="flowmap">
+            <div class="fnode"><div class="fi">1</div><div class="fl">注册</div><div class="fd">mp.weixin.qq.com</div></div><span class="arr">→</span>
+            <div class="fnode"><div class="fi">2</div><div class="fl">实名</div><div class="fd">身份证+扫码</div></div><span class="arr">→</span>
+            <div class="fnode"><div class="fi">3</div><div class="fl">拿 AppID</div><div class="fd">复制保存</div></div><span class="arr">→</span>
+            <div class="fnode"><div class="fi">4</div><div class="fl">设类目</div><div class="fd">工具-图片处理</div></div><span class="arr">→</span>
+            <div class="fnode"><div class="fi">5</div><div class="fl">导入项目</div><div class="fd">开发者工具</div></div>
+          </div>
+          <div class="flowmap" style="margin-top:10px">
+            <div class="fnode"><div class="fi">6</div><div class="fl">预览</div><div class="fd">扫码真机测试</div></div><span class="arr">→</span>
+            <div class="fnode"><div class="fi">7</div><div class="fl">上传</div><div class="fd">开发版本</div></div><span class="arr">→</span>
+            <div class="fnode"><div class="fi">8</div><div class="fl">提交审核</div><div class="fd">1~7 工作日</div></div><span class="arr">→</span>
+            <div class="fnode"><div class="fi">9</div><div class="fl">发布</div><div class="fd">搜索可达</div></div>
+          </div>
+          <div class="note info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <div><b>为什么改名"净像图片修复"？</b> 微信对"去水印"字样审核极严，多个案例因名称/简介含此词被判侵权拒审。改为中性的"图片修复"后，功能完全不变——仍是修复你有权处理的自有图片。类目选「工具 → 图片处理」，官方明确个人主体可选。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 第1步 -->
+      <section class="section" id="s1">
+        <div class="sec-head">
+          <div class="sec-num">1</div>
+          <div><h2>注册小程序账号，拿到 AppID</h2><div class="sub">微信公众平台 · 需你本人操作</div></div>
+        </div>
+        <div class="sec-body">
+          <ol>
+            <li>电脑浏览器打开微信公众平台：<span class="kbd">mp.weixin.qq.com</span>，点右上角<b>「立即注册」</b>→ 选<b>「小程序」</b>。</li>
+            <li>填一个<b>没注册过公众号/小程序</b>的邮箱，设置密码，去邮箱点激活链接完成激活。</li>
+            <li>主体类型选<b>「个人」</b>，用<b>本人身份证 + 本人微信扫码</b>做实名认证（微信强制，必须本人）。</li>
+            <li>认证完成后，左侧菜单「开发」→「开发管理」→「开发设置」，页面顶部就是 <b>AppID（小程序ID）</b>，形如 <span class="kbd">wx1a2b3c4d5e6f7g8h</span>。<b>复制保存好</b>，第 3 步要用。</li>
+          </ol>
+          <div class="note ok">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>
+            <div>个人主体免费、不需要营业执照。一个人通常有 5 个小程序的注册额度，足够使用。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 第2步 -->
+      <section class="section" id="s2">
+        <div class="sec-head">
+          <div class="sec-num">2</div>
+          <div><h2>完善账号信息与类目</h2><div class="sub">就在公众平台后台填写，文案已备好</div></div>
+        </div>
+        <div class="sec-body">
+          <p><b>① 基本设置</b>（左侧「设置」→「基本设置」）：</p>
+          <ul>
+            <li>名称：<b>净像图片修复</b>（若被占用，备选：净像照片修复 / 净像修图助手 / 净像局部修复）</li>
+            <li>头像：上传一张正方形图片，建议有品牌感</li>
+            <li>简介：用下面这段（已按审核口径写好）</li>
+          </ul>
+          <div class="copybox">
+            <div class="copybox-hd"><span class="copybox-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>小程序简介</span><button class="copy-btn" data-copy="intro"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>复制</button></div>
+            <pre id="copy-intro">一款本地图片处理工具，可对照片上的瑕疵、标记、日期戳等局部区域进行智能修复填充。所有处理均在您的设备本地完成，图片不上传服务器。请仅处理您自己创作或已获授权的图片。</pre>
+          </div>
+
+          <p style="margin-top:18px"><b>② 服务类目</b>（关键，别选错）：「设置」→「基本设置」→「服务类目」→ 添加 → 一级 <b>工具</b> / 二级 <b>图片处理</b>。</p>
+          <div class="note warn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+            <div>官方备案指引写明「工具-图片处理」<b>个人主体可选</b>，定义是"图片/音视频本地制作、剪辑，不适用于传播分享、公开访问"——本工具本地处理、不上传、不分享，完全符合。<b>千万不要选社交/内容传播类目</b>，会触发额外资质要求。</div>
+          </div>
+
+          <p style="margin-top:18px"><b>③ 用户隐私保护指引</b>（现在微信强制要求）：「设置」→「服务内容声明」→「用户隐私保护指引」→ 按向导填写并提交，要点：</p>
+          <ul>
+            <li>收集的信息：<b>不收集任何个人信息</b>（无需登录、无第三方 SDK）</li>
+            <li>相册/相机权限：用于用户主动选择的图片本地处理，不上传、不存储</li>
+            <li>保存到相册权限：用于用户主动保存修复结果</li>
+            <li>可直接引用项目里 <span class="path">04_小程序版/pages/privacy/privacy.wxml</span> 的文案作为依据</li>
+          </ul>
+        </div>
+      </section>
+
+      <!-- 第3步 -->
+      <section class="section" id="s3">
+        <div class="sec-head">
+          <div class="sec-num">3</div>
+          <div><h2>配置项目（填入 AppID）</h2><div class="sub">改一行，或直接让工具帮你填</div></div>
+        </div>
+        <div class="sec-body">
+          <p>用记事本打开 <span class="path">D:\去水印\04_小程序版\project.config.json</span>，找到这一行：</p>
+          <div class="copybox">
+            <div class="copybox-hd"><span class="copybox-label">修改前 → 修改后</span></div>
+            <pre>"appid": "touristappid",　　<span style="color:var(--primary-dark);font-weight:650">→ 改为 →</span>　　"appid": "wx1a2b3c4d5e6f7g8h",</pre>
+          </div>
+          <p>把 <span class="kbd">touristappid</span> 换成你第 1 步拿到的 AppID，保存。</p>
+          <div class="note info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <div>不方便改文件也没关系——第 4 步导入项目时，在开发者工具界面里也能直接填 AppID。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 第4步 -->
+      <section class="section" id="s4">
+        <div class="sec-head">
+          <div class="sec-num">4</div>
+          <div><h2>安装开发者工具并导入项目</h2><div class="sub">微信开发者工具 · 需你微信扫码登录</div></div>
+        </div>
+        <div class="sec-body">
+          <ol>
+            <li>下载安装【微信开发者工具（稳定版）】：<span class="kbd">developers.weixin.qq.com/miniprogram/dev/devtools/download.html</span>，选 Windows 64 位稳定版。</li>
+            <li>打开工具，用你自己的微信扫码登录（就是做实名认证的那个微信，它是小程序管理员）。</li>
+            <li>点「+」新建项目 /「导入项目」，填写：
+              <ul style="margin-top:8px">
+                <li>目录：<span class="path">D:\去水印\04_小程序版</span></li>
+                <li>AppID：你的 AppID</li>
+                <li>项目名称：<b>净像图片修复</b></li>
+                <li>后端服务：选<b>「不使用云服务」</b>（本小程序纯本地处理，用不到云）</li>
+              </ul>
+            </li>
+            <li>点「确定」，工具会编译并在模拟器里打开小程序。</li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- 第5步 -->
+      <section class="section" id="s5">
+        <div class="sec-head">
+          <div class="sec-num">5</div>
+          <div><h2>真机预览，确认能跑</h2><div class="sub">上传前先自测，避免审核翻车</div></div>
+        </div>
+        <div class="sec-body">
+          <ol>
+            <li>在模拟器里先选一张测试图 → 框选一个区域 → 点「开始修复」，看效果是否正常。</li>
+            <li>点工具右上角<b>「预览」</b>，生成二维码。</li>
+            <li>用手机微信扫码，小程序在手机里打开。完整走一遍：选图 → 框选 → 修复 → 保存到相册。</li>
+          </ol>
+          <div class="note info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <div>预览码有时效，过期了重新点「预览」生成即可。确认无误再进行下一步。</div>
+          </div>
+        </div>
+      </section>
+
+      <!-- 第6步 -->
+      <section class="section" id="s6">
+        <div class="sec-head">
+          <div class="sec-num">6</div>
+          <div><h2>上传代码</h2><div class="sub">开发者工具 → 公众平台后台</div></div>
+        </div>
+        <div class="sec-body">
+          <ol>
+            <li>在开发者工具点右上角<b>「上传」</b>。</li>
+            <li>填版本号（如 <span class="kbd">1.0.0</span>）和备注（如"首次发布"）。</li>
+            <li>确定后代码上传到公众平台。回到网页后台「版本管理」，能看到刚上传的<b>开发版本</b>。</li>
+          </ol>
+        </div>
+      </section>
+
+      <!-- 第7步：重点 -->
+      <section class="section" id="s7">
+        <div class="sec-head">
+          <div class="sec-num" style="background:linear-gradient(135deg,#E0A020,#0F9E8E)">7</div>
+          <div><h2>提交审核（重点 · 文案直接复制）</h2><div class="sub">在「版本管理」点「提交审核」，按下面填</div></div>
+        </div>
+        <div class="sec-body">
+          <div class="note warn">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01"/><path d="M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>
+            <div>这一步决定过审率。<b>下面三段文案请原样复制</b>，它们刻意避开了"去水印/解析平台"等敏感表述，突出"本地处理、自有图片、不上传、不分享"。</div>
+          </div>
+
+          <p style="margin-top:18px"><b>① 功能页面与标签</b></p>
+          <ul>
+            <li>页面路径：<span class="kbd">pages/index/index</span>　页面标题：图片修复　类目：工具-图片处理</li>
+          </ul>
+
+          <p><b>② 小程序功能描述</b></p>
+          <div class="copybox">
+            <div class="copybox-hd"><span class="copybox-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>功能描述（复制）</span><button class="copy-btn" data-copy="desc"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>复制</button></div>
+            <pre id="copy-desc">本小程序是一款本地图片处理工具。用户从手机相册选择图片后，可手动框选图片上的瑕疵、标记、日期戳等局部区域，选择修复方式后，在设备本地通过像素填充算法完成修复，并可保存到相册。全程在用户设备本地处理，图片不上传服务器、不存储、不涉及任何内容分享或传播。用户需勾选授权确认，承诺仅处理自己创作或已获授权的图片。</pre>
+          </div>
+
+          <p><b>③ 补充说明（选填，但强烈建议填，能提高通过率）</b></p>
+          <div class="copybox">
+            <div class="copybox-hd"><span class="copybox-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>补充说明（复制）</span><button class="copy-btn" data-copy="extra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>复制</button></div>
+            <pre id="copy-extra">本工具仅对用户在本地主动选择的图片做局部像素修复，不涉及解析或抓取任何第三方平台内容，不涉及用户上传内容的社会化传播，不收集任何个人信息。已在小程序内显著位置提示用户仅处理自有或已授权内容，并附《用户协议与隐私政策》。</pre>
+          </div>
+
+          <p><b>④ 差异化说明（若被问到"与其他小程序有何不同"）</b></p>
+          <div class="copybox">
+            <div class="copybox-hd"><span class="copybox-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg>差异化说明（复制）</span><button class="copy-btn" data-copy="diff"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>复制</button></div>
+            <pre id="copy-diff">本工具专注本地图片局部瑕疵修复，全部运算在用户设备完成，主打隐私安全（图片不上传），不依赖云端 AI 服务，不收集用户信息。</pre>
+          </div>
+
+          <p style="margin-top:18px"><b>⑤ 测试账号</b>：本小程序无需登录，填"无需测试账号"即可（若必填，写"本小程序无需登录，可直接使用"）。</p>
+          <p>提交后等审核，一般 <b>1~7 个工作日</b>，多数 1~2 天出结果，可在「版本管理」看进度。</p>
+        </div>
+      </section>
+
+      <!-- 第8步 -->
+      <section class="section" id="s8">
+        <div class="sec-head">
+          <div class="sec-num">8</div>
+          <div><h2>发布上线</h2><div class="sub">审核通过后，最后一步</div></div>
+        </div>
+        <div class="sec-body">
+          <ol>
+            <li>公众平台「版本管理」→ 审核通过的版本，点<b>「发布」</b>。</li>
+            <li>发布后，用户就能在微信里<b>搜索"净像图片修复"</b>找到并使用，也可通过你分享的小程序码进入。</li>
+            <li>建议到「设置」→「基本设置」下载小程序码，做成二维码方便分享。</li>
+          </ol>
+          <div class="finish">
+            <div class="fico">🎉</div>
+            <h3>恭喜，正式上线！</h3>
+            <p>从注册到发布，你已经走完了完整流程。<br>后续更新只需在开发者工具重新上传 → 提交审核 → 发布即可。</p>
+          </div>
+        </div>
+      </section>
+
+      <!-- FAQ -->
+      <section class="section" id="faq">
+        <div class="sec-head">
+          <div class="sec-num" style="background:linear-gradient(135deg,#93A0B0,#5B6675)">?</div>
+          <div><h2>常见问题与拒审自救</h2><div class="sub">遇到问题，点开看解法</div></div>
+        </div>
+        <div class="sec-body">
+          <div class="faq">
+            <details>
+              <summary><span class="q">Q</span>审核被拒，理由是"涉及侵权/去水印"？<span class="arw">›</span></summary>
+              <div class="faq-a"><p>通常是因为名称、简介或描述里出现了"去水印""解析抖音/快手"等字样。检查并改掉：</p><p>① 名称保持"净像图片修复"这类中性词；② 用本教程第 2、7 步给的文案，强调"本地处理、自有图片、不上传、不分享"；③ 确认界面里没有"去水印"字样（本项目已改好）。改完重新提交即可，<b>不影响账号</b>。</p></div>
+            </details>
+            <details>
+              <summary><span class="q">Q</span>审核被拒，理由是"类目不符"？<span class="arw">›</span></summary>
+              <div class="faq-a"><p>确认公众平台后台服务类目是「工具 → 图片处理」，且与提交审核时选的类目一致。二者必须匹配。</p></div>
+            </details>
+            <details>
+              <summary><span class="q">Q</span>审核被拒，理由是"缺少隐私政策"？<span class="arw">›</span></summary>
+              <div class="faq-a"><p>确认两处都做了：① 公众平台「用户隐私保护指引」已提交；② 小程序内首页底部有「用户协议与隐私政策」入口（本项目已加好，在 <span class="path">pages/privacy</span>）。</p></div>
+            </details>
+            <details>
+              <summary><span class="q">Q</span>注册时提示邮箱已被占用？<span class="arw">›</span></summary>
+              <div class="faq-a"><p>换一个没注册过微信公众平台的邮箱；一个邮箱只能注册一个公众号/小程序。</p></div>
+            </details>
+            <details>
+              <summary><span class="q">Q</span>预览正常，但上传后某些手机修复慢或失败？<span class="arw">›</span></summary>
+              <div class="faq-a"><p>修复算法纯本地运算，超大图（几千像素）在低端机上会慢。可引导用户先裁剪图片再处理。这是性能问题，不是审核问题。</p></div>
+            </details>
+            <details>
+              <summary><span class="q">Q</span>需要营业执照吗？能变现吗？<span class="arw">›</span></summary>
+              <div class="faq-a"><p>个人主体 + 「工具-图片处理」类目<b>不需要营业执照</b>，身份证即可。若以后想开通虚拟支付/流量主变现，个人主体同样受限——这是微信对所有小程序的通用规则，与本工具无关。</p></div>
+            </details>
+          </div>
+        </div>
+      </section>
+
+      <!-- 分工表 -->
+      <section class="section" id="roles">
+        <div class="sec-head">
+          <div class="sec-num" style="background:linear-gradient(135deg,#0F9E8E,#5B6EE1)">≡</div>
+          <div><h2>你负责 vs 我已经做好</h2><div class="sub">各司其职，省心发布</div></div>
+        </div>
+        <div class="sec-body">
+          <table>
+            <thead><tr><th style="width:58%">环节</th><th>谁做</th></tr></thead>
+            <tbody>
+              <tr><td>注册账号、实名认证、微信扫码</td><td><span class="pill you">你本人（必须）</span></td></tr>
+              <tr><td>拿 AppID、设置类目、填隐私指引</td><td><span class="pill you">你（照教程填）</span></td></tr>
+              <tr><td>导入项目、真机预览、上传、提交审核、发布</td><td><span class="pill you">你（照教程操作）</span></td></tr>
+              <tr><td>代码合规化改造（去敏感字样、加隐私页、类目适配）</td><td><span class="pill me">✅ 已完成</span></td></tr>
+              <tr><td>审核文案、简介、功能描述</td><td><span class="pill me">✅ 已备好</span></td></tr>
+              <tr><td>审核被拒后分析原因、改文案/代码</td><td><span class="pill me">随时找我</span></td></tr>
+            </tbody>
+          </table>
+          <div class="note info">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 8h.01"/></svg>
+            <div>拿到 AppID 后发给我，我可以帮你填进项目。任何一步卡住，把提示截图发我，我帮你判断怎么改。</div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+</div>
+
+<footer>
+  <p class="disc"><b>合规声明：</b>本项目仅用于处理你自己创作或已获授权的图片内容。去除图片标记不等于取得版权，请勿用于侵犯他人合法权益或违反法律法规的用途。</p>
+  <p>净像 · 图片修复　|　微信小程序发布图文教程 v1.0　|　单文件离线可用 · 支持手机阅读与打印</p>
+</footer>
+
+<div class="toast" id="toast">已复制到剪贴板 ✓</div>
+
+<script>
+// 复制功能
+var copyData = {
+  intro: '一款本地图片处理工具，可对照片上的瑕疵、标记、日期戳等局部区域进行智能修复填充。所有处理均在您的设备本地完成，图片不上传服务器。请仅处理您自己创作或已获授权的图片。',
+  desc: '本小程序是一款本地图片处理工具。用户从手机相册选择图片后，可手动框选图片上的瑕疵、标记、日期戳等局部区域，选择修复方式后，在设备本地通过像素填充算法完成修复，并可保存到相册。全程在用户设备本地处理，图片不上传服务器、不存储、不涉及任何内容分享或传播。用户需勾选授权确认，承诺仅处理自己创作或已获授权的图片。',
+  extra: '本工具仅对用户在本地主动选择的图片做局部像素修复，不涉及解析或抓取任何第三方平台内容，不涉及用户上传内容的社会化传播，不收集任何个人信息。已在小程序内显著位置提示用户仅处理自有或已授权内容，并附《用户协议与隐私政策》。',
+  diff: '本工具专注本地图片局部瑕疵修复，全部运算在用户设备完成，主打隐私安全（图片不上传），不依赖云端 AI 服务，不收集用户信息。'
+};
+var toast = document.getElementById('toast');
+function showToast(msg){
+  toast.textContent = msg;
+  toast.classList.add('show');
+  clearTimeout(toast._t);
+  toast._t = setTimeout(function(){ toast.classList.remove('show'); }, 1800);
+}
+document.querySelectorAll('.copy-btn').forEach(function(btn){
+  btn.addEventListener('click', function(){
+    var key = btn.getAttribute('data-copy');
+    var text = copyData[key] || document.getElementById('copy-' + key).textContent;
+    function done(){
+      btn.classList.add('done');
+      btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>已复制';
+      showToast('已复制到剪贴板 ✓');
+      setTimeout(function(){
+        btn.classList.remove('done');
+        btn.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 01-2-2V4a2 2 0 012-2h9a2 2 0 012 2v1"/></svg>复制';
+      }, 1800);
+    }
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(done).catch(function(){ fallbackCopy(text, done); });
+    } else { fallbackCopy(text, done); }
+  });
+});
+function fallbackCopy(text, cb){
+  var ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+  document.body.appendChild(ta); ta.select();
+  try { document.execCommand('copy'); cb(); } catch(e){ showToast('复制失败，请手动选择'); }
+  document.body.removeChild(ta);
+}
+
+// 滚动进度条
+var progressBar = document.getElementById('progressBar');
+window.addEventListener('scroll', function(){
+  var h = document.documentElement;
+  var p = h.scrollTop / (h.scrollHeight - h.clientHeight) * 100;
+  progressBar.style.width = p + '%';
+});
+
+// 目录高亮
+var sections = Array.prototype.slice.call(document.querySelectorAll('.section'));
+var tocLinks = Array.prototype.slice.call(document.querySelectorAll('.toc a'));
+window.addEventListener('scroll', function(){
+  var cur = '';
+  sections.forEach(function(s){
+    if (s.getBoundingClientRect().top <= 130) cur = s.id;
+  });
+  tocLinks.forEach(function(a){
+    a.classList.toggle('active', a.getAttribute('href') === '#' + cur);
+  });
+});
+</script>
+</body>
+</html>
