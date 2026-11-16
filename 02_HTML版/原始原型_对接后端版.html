@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>净像 · 智能去水印工作台</title>
+<style>
+/* ============ 主题配置（改这里即可换肤）============ */
+:root{
+  --primary:#0F9E8E;          /* 主色 青绿 */
+  --primary-dark:#0B7A6E;
+  --accent:#5B6EE1;           /* 辅助色 靛蓝 */
+  --bg:#F5F7F9;               /* 页面背景 */
+  --surface:#FFFFFF;          /* 卡片背景 */
+  --ink:#1C2430;              /* 主文字 */
+  --ink-2:#5B6675;            /* 次文字 */
+  --ink-3:#93A0B0;            /* 提示文字 */
+  --line:#E7EBF0;             /* 描边 */
+  --ok:#16A34A;
+  --warn:#E0A020;
+  --radius:16px;
+  --radius-s:10px;
+  --shadow:0 8px 30px rgba(24,39,60,.06);
+  --shadow-s:0 2px 10px rgba(24,39,60,.05);
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",sans-serif;background:var(--bg);color:var(--ink);line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:1180px;margin:0 auto;padding:0 24px}
+
+/* ============ 顶部导航 ============ */
+header{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:20}
+.nav{height:66px;display:flex;align-items:center;justify-content:space-between}
+.brand{display:flex;align-items:center;gap:11px;font-size:18px;font-weight:700;letter-spacing:.5px}
+.logo{width:34px;height:34px;border-radius:10px;background:linear-gradient(135deg,var(--primary),var(--accent));display:flex;align-items:center;justify-content:center;box-shadow:0 4px 12px rgba(15,158,142,.3)}
+.logo svg{width:20px;height:20px}
+.nav-links{display:flex;align-items:center;gap:28px;font-size:14px;color:var(--ink-2)}
+.nav-links a{text-decoration:none;color:inherit;transition:color .2s}
+.nav-links a:hover{color:var(--primary)}
+.btn-ghost{border:1px solid var(--line);background:var(--surface);padding:8px 16px;border-radius:9px;font-size:13px;color:var(--ink-2);cursor:pointer;transition:all .2s}
+.btn-ghost:hover{border-color:var(--primary);color:var(--primary)}
+
+/* ============ HERO ============ */
+.hero{text-align:center;padding:52px 0 30px}
+.badge{display:inline-flex;align-items:center;gap:7px;background:rgba(15,158,142,.09);color:var(--primary-dark);font-size:12px;font-weight:600;padding:7px 14px;border-radius:20px;margin-bottom:18px}
+.badge .dot{width:6px;height:6px;border-radius:50%;background:var(--primary)}
+.hero h1{font-size:38px;line-height:1.25;font-weight:750;letter-spacing:-.5px;margin-bottom:14px}
+.hero h1 .grad{background:linear-gradient(120deg,var(--primary),var(--accent));-webkit-background-clip:text;background-clip:text;color:transparent}
+.hero p{font-size:15px;color:var(--ink-2);max-width:560px;margin:0 auto}
+.features{display:flex;justify-content:center;gap:26px;margin-top:28px;flex-wrap:wrap}
+.feat{display:flex;align-items:center;gap:8px;font-size:13px;color:var(--ink-2)}
+.feat svg{width:17px;height:17px;color:var(--primary)}
+
+/* ============ 主工作区 ============ */
+.workspace{display:grid;grid-template-columns:1.55fr 1fr;gap:22px;margin-bottom:40px;align-items:start}
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow)}
+.card-head{padding:18px 22px;border-bottom:1px solid var(--line);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:15px;font-weight:650;display:flex;align-items:center;gap:9px}
+.step-num{width:22px;height:22px;border-radius:7px;background:rgba(15,158,142,.12);color:var(--primary-dark);font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.card-body{padding:22px}
+
+/* 上传区 */
+.dropzone{border:2px dashed #CFD8E3;border-radius:14px;min-height:300px;display:flex;flex-direction:column;align-items:center;justify-content:center;cursor:pointer;transition:all .25s;background:#FBFCFD;position:relative;overflow:hidden}
+.dropzone:hover,.dropzone.drag{border-color:var(--primary);background:rgba(15,158,142,.04)}
+.upload-ico{width:66px;height:66px;border-radius:20px;background:linear-gradient(135deg,rgba(15,158,142,.12),rgba(91,110,225,.1));display:flex;align-items:center;justify-content:center;margin-bottom:16px}
+.upload-ico svg{width:30px;height:30px;color:var(--primary)}
+.dropzone h3{font-size:16px;font-weight:600;margin-bottom:6px}
+.dropzone p{font-size:13px;color:var(--ink-3)}
+.dropzone .browse{color:var(--primary);font-weight:600}
+.file-types{margin-top:14px;font-size:12px;color:var(--ink-3)}
+
+/* 画布编辑器 */
+.editor{display:none;position:relative}
+.editor.active{display:block}
+.canvas-wrap{position:relative;border-radius:12px;overflow:hidden;background:#0E141B;line-height:0}
+#stage{max-width:100%;display:block;cursor:crosshair;touch-action:none}
+.toolbar{display:flex;align-items:center;gap:8px;margin-top:14px;flex-wrap:wrap}
+.tool{padding:7px 13px;border:1px solid var(--line);border-radius:9px;background:var(--surface);font-size:13px;color:var(--ink-2);cursor:pointer;display:flex;align-items:center;gap:6px;transition:all .2s}
+.tool:hover{border-color:var(--primary);color:var(--primary)}
+.tool.active{background:var(--primary);color:#fff;border-color:var(--primary)}
+.tool svg{width:15px;height:15px}
+.tool-hint{margin-left:auto;font-size:12px;color:var(--ink-3)}
+
+/* 流程状态条 */
+.flow{display:flex;align-items:center;justify-content:space-between;padding:16px 22px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);margin-bottom:22px;box-shadow:var(--shadow-s)}
+.flow-step{display:flex;align-items:center;gap:10px;font-size:13px;color:var(--ink-3);flex:1}
+.flow-step .ic{width:30px;height:30px;border-radius:50%;background:#EEF1F5;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s}
+.flow-step .ic svg{width:16px;height:16px;color:var(--ink-3)}
+.flow-step.done{color:var(--ink)}
+.flow-step.done .ic{background:rgba(15,158,142,.14)}
+.flow-step.done .ic svg{color:var(--primary)}
+.flow-step.active{color:var(--primary-dark);font-weight:600}
+.flow-step.active .ic{background:var(--primary);box-shadow:0 3px 10px rgba(15,158,142,.3)}
+.flow-step.active .ic svg{color:#fff}
+.flow-line{height:1px;background:var(--line);flex:0 0 40px;margin:0 8px}
+
+/* 右侧面板 */
+.panel-section{padding:20px 22px;border-bottom:1px solid var(--line)}
+.panel-section:last-child{border-bottom:none}
+.panel-label{font-size:12px;font-weight:650;color:var(--ink-2);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px;display:flex;align-items:center;gap:7px}
+.panel-label svg{width:14px;height:14px;color:var(--primary)}
+.opt-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;font-size:13px;color:var(--ink-2)}
+.opt-row .val{color:var(--ink);font-weight:600}
+.switch{width:40px;height:22px;border-radius:20px;background:#D6DDE5;position:relative;cursor:pointer;transition:background .2s;flex-shrink:0}
+.switch::after{content:"";position:absolute;width:16px;height:16px;border-radius:50%;background:#fff;top:3px;left:3px;transition:left .2s;box-shadow:0 1px 3px rgba(0,0,0,.2)}
+.switch.on{background:var(--primary)}
+.switch.on::after{left:21px}
+.range{width:100%;height:4px;border-radius:4px;background:#E5EAF0;appearance:none;outline:none;margin:10px 0 4px}
+.range::-webkit-slider-thumb{appearance:none;width:16px;height:16px;border-radius:50%;background:var(--primary);cursor:pointer;box-shadow:0 1px 5px rgba(15,158,142,.4)}
+select.select{width:100%;padding:9px 12px;border:1px solid var(--line);border-radius:9px;font-size:13px;color:var(--ink);background:var(--surface);outline:none;cursor:pointer}
+select.select:focus{border-color:var(--primary)}
+
+.btn-primary{width:100%;padding:13px;border:none;border-radius:11px;background:linear-gradient(120deg,var(--primary),var(--primary-dark));color:#fff;font-size:14px;font-weight:650;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:all .25s;box-shadow:0 5px 16px rgba(15,158,142,.28)}
+.btn-primary:hover{transform:translateY(-1px);box-shadow:0 8px 22px rgba(15,158,142,.36)}
+.btn-primary:disabled{opacity:.5;cursor:not-allowed;transform:none;box-shadow:none}
+.btn-primary svg{width:17px;height:17px}
+
+.auth-note{display:flex;gap:10px;padding:12px;background:rgba(224,160,32,.07);border:1px solid rgba(224,160,32,.2);border-radius:10px;margin-top:14px}
+.auth-note svg{width:16px;height:16px;color:var(--warn);flex-shrink:0;margin-top:2px}
+.auth-note p{font-size:11.5px;color:#8A6A20;line-height:1.55}
+
+/* 服务状态指示 */
+.server-status{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:5px 10px;border-radius:20px;font-weight:500}
+.server-status .sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.server-status.checking{background:#EEF1F5;color:var(--ink-3)}
+.server-status.checking .sdot{background:#B4B2A9}
+.server-status.online{background:rgba(22,163,74,.1);color:var(--ok)}
+.server-status.online .sdot{background:var(--ok);box-shadow:0 0 0 3px rgba(22,163,74,.15)}
+.server-status.offline{background:rgba(224,160,32,.12);color:#8A6A20}
+.server-status.offline .sdot{background:var(--warn)}
+
+/* 对比区 */
+.compare-section{display:none;margin-bottom:40px}
+.compare-section.active{display:block}
+.compare-box{position:relative;max-width:760px;margin:0 auto;border-radius:14px;overflow:hidden;line-height:0;background:#0E141B;user-select:none}
+.compare-box img{display:block;max-width:100%}
+.compare-overlay{position:absolute;inset:0}
+.compare-overlay img{display:block;width:100%;clip-path:inset(0 50% 0 0)}
+.compare-handle{position:absolute;top:0;bottom:0;width:2px;background:#fff;cursor:ew-resize;box-shadow:0 0 6px rgba(0,0,0,.3);z-index:5}
+.compare-handle::after{content:"";position:absolute;width:32px;height:32px;border-radius:50%;background:#fff;top:50%;left:50%;transform:translate(-50%,-50%);box-shadow:0 2px 10px rgba(0,0,0,.25)}
+.compare-handle::before{content:"‹ ›";position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);z-index:6;font-size:15px;color:var(--ink-2);letter-spacing:2px;font-weight:700}
+.tag{position:absolute;top:14px;padding:5px 11px;border-radius:7px;font-size:12px;font-weight:600;z-index:4;color:#fff}
+.tag.before{left:14px;background:rgba(28,36,48,.75)}
+.tag.after{right:14px;background:rgba(15,158,142,.85)}
+.result-actions{display:flex;justify-content:center;gap:12px;margin-top:20px;flex-wrap:wrap}
+
+/* 弹出提示 */
+.toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--ink);color:#fff;padding:12px 22px;border-radius:11px;font-size:13px;opacity:0;transition:all .35s cubic-bezier(.2,.8,.2,1);z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.2)}
+.toast.show{transform:translateX(-50%) translateY(0);opacity:1}
+
+/* 页脚 */
+footer{text-align:center;padding:30px 0 40px;color:var(--ink-3);font-size:12px;border-top:1px solid var(--line)}
+footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
+
+@media(max-width:860px){
+  .workspace{grid-template-columns:1fr}
+  .hero h1{font-size:30px}
+  .nav-links{display:none}
+  .flow{flex-wrap:wrap;gap:12px}
+  .flow-line{display:none}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="wrap nav">
+    <div class="brand">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg>
+      </div>
+      净像 <span style="font-size:12px;font-weight:400;color:var(--ink-3)">Watermark Studio</span>
+    </div>
+    <div class="nav-links">
+      <a href="#workspace">工作台</a>
+      <a href="#compare">效果对比</a>
+      <a href="#">使用说明</a>
+      <button class="btn-ghost" onclick="toast('配置已集中在 CSS 顶部 :root，便于换肤')">⚙ 主题设置</button>
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+  <section class="hero">
+    <span class="badge"><span class="dot"></span> AI 驱动 · 本地优先 · 保留原始细节</span>
+    <h1>让水印消失，<span class="grad">让清晰留存</span></h1>
+    <p>面向个人内容的智能去水印工作台。框选水印，AI 精准修复，画质增强，导出高保真成品。</p>
+    <div class="features">
+      <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>仅处理自有内容</div>
+      <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>秒级智能修复</div>
+      <div class="feat"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>原始分辨率导出</div>
+    </div>
+  </section>
+
+  <!-- 流程状态条 -->
+  <div class="flow" id="flow">
+    <div class="flow-step active" data-step="1"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M17 8l-5-5-5 5M12 3v12"/></svg></div>上传内容</div>
+    <div class="flow-line"></div>
+    <div class="flow-step" data-step="2"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 9h18M9 21V9"/></svg></div>框选水印</div>
+    <div class="flow-line"></div>
+    <div class="flow-step" data-step="3"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg></div>AI 修复</div>
+    <div class="flow-line"></div>
+    <div class="flow-step" data-step="4"><div class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>导出成品</div>
+  </div>
+
+  <!-- 工作区 -->
+  <section class="workspace" id="workspace">
+    <!-- 左侧：画布 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><span class="step-num">1</span>内容画布</div>
+        <span id="fileInfo" style="font-size:12px;color:var(--ink-3)">尚未选择文件</span>
+      </div>
+      <div class="card-body">
+        <div class="dropzone" id="dropzone">
+          <div class="upload-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
+          <h3>拖拽图片到这里，或点击上传</h3>
+          <p><span class="browse">选择文件</span> · 支持 JPG / PNG / WEBP</p>
+          <div class="file-types">建议单张 ≤ 20MB · 所有处理均在本地完成</div>
+          <input type="file" id="fileInput" accept="image/*" hidden>
+        </div>
+
+        <div class="editor" id="editor">
+          <div class="canvas-wrap">
+            <canvas id="stage"></canvas>
+          </div>
+          <div class="toolbar">
+            <button class="tool active" id="toolRect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>矩形框选</button>
+            <button class="tool" id="toolClear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除标记</button>
+            <button class="tool" id="toolAuto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>自动识别</button>
+            <span class="tool-hint">在图片上拖拽框出水印区域</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 右侧：控制面板 -->
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title"><span class="step-num">2</span>处理设置</div>
+        <div id="serverStatus" class="server-status checking"><span class="sdot"></span><span id="serverStatusText">检测服务中…</span></div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2 15H2a2 2 0 1 1 0-4h.1A1.7 1.7 0 0 0 3.6 9a1.7 1.7 0 0 0-.3-1.9l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1A1.7 1.7 0 0 0 9 4.6h.1A1.7 1.7 0 0 0 10.3 3V3a2 2 0 1 1 4 0v.1A1.7 1.7 0 0 0 15 3.6"/></svg>修复引擎</div>
+        <select class="select" id="engine">
+          <option value="auto">自动融合（A→无损→B→兜底）</option>
+          <option value="source">引擎A · 源头解析（需分享链接）</option>
+          <option value="alpha">反向Alpha · 固定模板无损</option>
+          <option value="ai">引擎B · AI修复流水线</option>
+          <option value="opencv">兜底 · OpenCV 快速修复</option>
+        </select>
+        <div id="fusionHint" style="font-size:11.5px;color:var(--ink-3);margin-top:8px;line-height:1.5">
+          自动模式优先走无损通道，失败后按 A → Alpha → B → 兜底 顺序回退。
+        </div>
+        <div class="opt-row" style="margin-top:8px"><span>自动画质增强</span><div class="switch on" id="swEnhance"></div></div>
+        <div class="opt-row"><span>人脸保真 (GFPGAN)</span><div class="switch" id="swFace"></div></div>
+        <div class="opt-row" style="display:block">
+          <div style="display:flex;justify-content:space-between"><span>修复强度</span><span class="val" id="strengthVal">中等</span></div>
+          <input type="range" class="range" id="strength" min="1" max="3" value="2">
+        </div>
+      </div>
+      <div class="panel-section">
+        <div class="panel-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>合规确认</div>
+        <label class="opt-row" style="cursor:pointer;gap:9px;justify-content:flex-start">
+          <input type="checkbox" id="authCheck" style="width:16px;height:16px;accent-color:var(--primary)">
+          <span>我确认对此内容拥有处理权或已获授权</span>
+        </label>
+        <div class="auth-note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 8v4M12 16h.01"/></svg>
+          <p>去除水印不等于获得版权。请仅处理自己创作或已明确授权的内容，勿用于去除他人作品署名与平台标识。</p>
+        </div>
+      </div>
+      <div class="panel-section">
+        <button class="btn-primary" id="btnProcess" disabled>
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4"/></svg>
+          <span id="btnText">开始智能修复</span>
+        </button>
+      </div>
+    </div>
+  </section>
+
+  <!-- 对比区 -->
+  <section class="compare-section" id="compare">
+    <div class="card">
+      <div class="card-head">
+        <div class="card-title">修复效果对比 <span style="font-size:12px;font-weight:400;color:var(--ink-3)">· 拖动中缝查看细节</span></div>
+      </div>
+      <div class="card-body">
+        <div class="compare-box" id="compareBox">
+          <img id="imgAfter" alt="修复后">
+          <div class="compare-overlay" id="overlay">
+            <img id="imgBefore" alt="修复前">
+          </div>
+          <span class="tag before">原图</span>
+          <span class="tag after">修复后</span>
+          <div class="compare-handle" id="handle" style="left:50%"></div>
+        </div>
+        <div class="result-actions">
+          <button class="btn-primary" style="width:auto;padding:12px 28px" onclick="downloadResult()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>下载修复结果</button>
+          <button class="btn-ghost" onclick="resetAll()" style="padding:12px 24px">处理下一张</button>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <p class="disc">本工具定位为个人内容处理原型，演示界面交互流程。实际去除能力需接入后端 AI 引擎（IOPaint LaMA / DeMark-World / Real-ESRGAN）。请始终遵守平台条款与相关法律法规。</p>
+  <p>净像 Watermark Studio · 交互原型 v0.1</p>
+</footer>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============ 配置区（文案 / 参数集中管理，便于修改）============ */
+const CONFIG = {
+  apiBase: 'http://127.0.0.1:8000',  // 后端服务地址（改这里可切换部署环境）
+  apiVersion: 'v2',         // v2 = 双引擎融合流程；v1 = 旧单引擎接口
+  autoBoxRatio: 0.22,       // 自动识别示意框占图比例
+  strengthLabel: {1:'轻度',2:'中等',3:'强力'},
+  engineNames: {source:'引擎A·源头解析', alpha:'反向Alpha·无损', ai:'引擎B·AI修复', opencv:'兜底·OpenCV'}
+};
+
+/* ============ 状态 ============ */
+const S = {
+  img:null, file:null, scale:1, rects:[], drawing:false, start:null, cur:null,
+  resultData:null, enhance:true, face:false, strength:2,
+  serverOnline:false, defaultEngine:'opencv', engines:[]
+};
+
+const $ = id => document.getElementById(id);
+const stage=$('stage'), ctx=stage.getContext('2d');
+let baseImage=null, bgCanvas=document.createElement('canvas');
+
+/* ============ 上传 ============ */
+const dz=$('dropzone'), fi=$('fileInput');
+dz.onclick=()=>fi.click();
+dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')};
+dz.ondragleave=()=>dz.classList.remove('drag');
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])};
+fi.onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0])};
+
+function loadFile(file){
+  if(!file.type.startsWith('image/')){toast('请选择图片文件');return}
+  S.file=file;
+  const reader=new FileReader();
+  reader.onload=ev=>{
+    const img=new Image();
+    img.onload=()=>{
+      S.img=img;
+      const maxW=720;
+      S.scale=Math.min(1,maxW/img.width);
+      stage.width=Math.round(img.width*S.scale);
+      stage.height=Math.round(img.height*S.scale);
+      baseImage=img;
+      S.rects=[];
+      $('fileInfo').textContent=`${file.name} · ${img.width}×${img.height}`;
+      dz.style.display='none';
+      $('editor').classList.add('active');
+      setFlow(2);
+      draw();
+      checkReady();
+      toast('图片已载入，请框选水印区域');
+    };
+    img.src=ev.target.result;
+  };
+  reader.readAsDataURL(file);
+}
+
+/* ============ 画布绘制 ============ */
+function draw(){
+  ctx.clearRect(0,0,stage.width,stage.height);
+  ctx.drawImage(baseImage,0,0,stage.width,stage.height);
+  // 已完成的框
+  S.rects.forEach(r=>drawRect(r,'rgba(15,158,142,.9)','rgba(15,158,142,.12)'));
+  // 正在拖的框
+  if(S.drawing&&S.cur){
+    const r={x:Math.min(S.start.x,S.cur.x),y:Math.min(S.start.y,S.cur.y),w:Math.abs(S.cur.x-S.start.x),h:Math.abs(S.cur.y-S.start.y)};
+    drawRect(r,'rgba(91,110,225,1)','rgba(91,110,225,.15)');
+  }
+}
+function drawRect(r,stroke,fill){
+  ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.setLineDash([6,4]);
+  ctx.strokeRect(r.x,r.y,r.w,r.h);
+  ctx.fillStyle=fill;ctx.fillRect(r.x,r.y,r.w,r.h);
+  ctx.setLineDash([]);
+}
+function pos(e){
+  const b=stage.getBoundingClientRect();
+  const x=(e.touches?e.touches[0].clientX:e.clientX)-b.left;
+  const y=(e.touches?e.touches[0].clientY:e.clientY)-b.top;
+  return{x,y};
+}
+function down(e){if(!S.img)return;e.preventDefault();S.drawing=true;S.start=pos(e);S.cur=S.start}
+function move(e){if(!S.drawing)return;e.preventDefault();S.cur=pos(e);draw()}
+function up(e){
+  if(!S.drawing)return;S.drawing=false;
+  if(S.cur){const r={x:Math.min(S.start.x,S.cur.x),y:Math.min(S.start.y,S.cur.y),w:Math.abs(S.cur.x-S.start.x),h:Math.abs(S.cur.y-S.start.y)};
+    if(r.w>8&&r.h>8)S.rects.push(r);}
+  S.cur=null;draw();checkReady();
+}
+stage.addEventListener('mousedown',down);stage.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
+stage.addEventListener('touchstart',down,{passive:false});stage.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',up);
+
+$('toolRect').onclick=()=>{toast('矩形框选：在图上拖拽框出水印')};
+$('toolClear').onclick=()=>{S.rects=[];draw();checkReady();toast('已清除所有标记')};
+$('toolAuto').onclick=()=>{
+  if(!S.img)return;
+  const w=stage.width*CONFIG.autoBoxRatio,h=stage.height*CONFIG.autoBoxRatio*0.5;
+  S.rects=[{x:stage.width-w-16,y:stage.height-h-16,w,h}];
+  draw();checkReady();toast('已自动识别疑似水印区域（示意），可手动调整');
+};
+
+/* ============ 面板交互 ============ */
+function bindSwitch(id,key){$(id).onclick=()=>{$(id).classList.toggle('on');S[key]=$(id).classList.contains('on')}}
+bindSwitch('swEnhance','enhance');bindSwitch('swFace','face');
+$('strength').oninput=e=>{S.strength=+e.target.value;$('strengthVal').textContent=CONFIG.strengthLabel[S.strength]};
+$('authCheck').onchange=checkReady;
+function checkReady(){
+  const ok=S.img&&S.rects.length>0&&$('authCheck').checked;
+  $('btnProcess').disabled=!ok;
+}
+
+/* ============ 处理：调用真实后端 API（离线时降级为本地演示）============ */
+$('btnProcess').onclick=async()=>{
+  if(!S.img||!S.rects.length)return;
+  setFlow(3);
+  $('btnProcess').disabled=true;
+  $('btnText').textContent='AI 修复中…';
+
+  try{
+    const result=await callBackend();
+    showResult(result.url);
+    const engName=CONFIG.engineNames[result.engine]||result.engine;
+    const losslessTag=result.lossless?' · 无损恢复':'';
+    toast(`修复完成 · ${engName}${losslessTag} · ${result.elapsed}ms`);
+  }catch(err){
+    console.warn('后端调用失败，降级为本地演示:',err);
+    showResult(localFallback());
+    toast('后端未连接，已用本地演示模式（启动后端可获得真实修复）');
+  }finally{
+    $('btnText').textContent='重新修复';
+    $('btnProcess').disabled=false;
+    setFlow(4);
+    $('compare').classList.add('active');
+    $('compare').scrollIntoView({behavior:'smooth',block:'center'});
+  }
+};
+
+/* 调用后端：上传原图 + 原图坐标的水印框 */
+async function callBackend(){
+  if(!S.serverOnline) await checkServer();
+  if(!S.serverOnline) throw new Error('server offline');
+
+  // 画布坐标 -> 原图坐标
+  const rects=S.rects.map(r=>({
+    x:Math.round(r.x/S.scale), y:Math.round(r.y/S.scale),
+    w:Math.round(r.w/S.scale), h:Math.round(r.h/S.scale)
+  }));
+  const sel=$('engine').value;
+  const auth=$('authCheck').checked;
+
+  const fd=new FormData();
+  fd.append('file',S.file);
+  fd.append('rects',JSON.stringify(rects));
+  fd.append('strength',String(S.strength));
+  fd.append('enhance',String(S.enhance));
+  fd.append('face',String(S.face));
+  fd.append('authorized',String(auth));
+  fd.append('prefer_engine',sel);
+
+  const endpoint=CONFIG.apiVersion==='v2'?'/api/v2/process':'/api/inpaint';
+  const resp=await fetch(`${CONFIG.apiBase}${endpoint}`,{method:'POST',body:fd});
+  if(!resp.ok){
+    let msg='';try{msg=(await resp.json()).error||`HTTP ${resp.status}`}catch{}
+    throw new Error(msg||`HTTP ${resp.status}`);
+  }
+  const blob=await resp.blob();
+  S.lastTrace=(()=>{try{return JSON.parse(resp.headers.get('X-Trace')||'[]')}catch{return[]}})();
+  return {
+    url:URL.createObjectURL(blob),
+    engine:resp.headers.get('X-Engine-Used')||resp.headers.get('X-Engine')||'ai',
+    lossless:(resp.headers.get('X-Lossless')||'false')==='true',
+    elapsed:resp.headers.get('X-Elapsed-Ms')||'?'
+  };
+}
+
+/* 本地降级演示：后端不可用时使用（保留原型的演示能力）*/
+function localFallback(){
+  const c=document.createElement('canvas');c.width=baseImage.width;c.height=baseImage.height;
+  const cx=c.getContext('2d');cx.drawImage(baseImage,0,0);
+  S.rects.forEach(r=>{
+    const x=Math.round(r.x/S.scale),y=Math.round(r.y/S.scale),w=Math.round(r.w/S.scale),h=Math.round(r.h/S.scale);
+    const sample=cx.getImageData(Math.max(0,x-6),Math.max(0,y-6),Math.max(1,w+12),Math.max(1,h+12));
+    cx.fillStyle=pickAvg(sample.data);
+    cx.fillRect(x,y,w,h);
+  });
+  return c.toDataURL('image/png');
+}
+function pickAvg(d){
+  let r=0,g=0,b=0,n=0;
+  for(let i=0;i<d.length;i+=40){r+=d[i];g+=d[i+1];b+=d[i+2];n++}
+  return `rgb(${Math.round(r/n)},${Math.round(g/n)},${Math.round(b/n)})`;
+}
+function showResult(url){
+  S.resultData=url;
+  $('imgAfter').src=url;
+  $('imgBefore').src=baseImage.src;
+}
+
+/* ============ 对比滑杆 ============ */
+const box=$('compareBox'),overlay=$('overlay'),handle=$('handle');
+let dragging=false;
+function slide(e){
+  const b=box.getBoundingClientRect();
+  let x=(e.touches?e.touches[0].clientX:e.clientX)-b.left;
+  x=Math.max(0,Math.min(b.width,x));
+  const p=x/b.width*100;
+  $('imgBefore').style.clipPath=`inset(0 ${100-p}% 0 0)`;
+  handle.style.left=p+'%';
+}
+handle.addEventListener('mousedown',()=>dragging=true);
+box.addEventListener('mousedown',e=>{dragging=true;slide(e)});
+window.addEventListener('mousemove',e=>{if(dragging)slide(e)});
+window.addEventListener('mouseup',()=>dragging=false);
+box.addEventListener('touchstart',e=>{dragging=true;slide(e)},{passive:false});
+window.addEventListener('touchmove',e=>{if(dragging)slide(e)},{passive:false});
+window.addEventListener('touchend',()=>dragging=false);
+
+/* ============ 后端服务检测（v2 融合引擎）============ */
+async function checkServer(){
+  const el=$('serverStatus'),txt=$('serverStatusText');
+  try{
+    const resp=await fetch(`${CONFIG.apiBase}/api/v2/engines`,{signal:AbortSignal.timeout(2500)});
+    const data=await resp.json();
+    S.serverOnline=!!data.engines;
+    S.engines=data.engines||[];
+    const on=k=>(S.engines.find(e=>e.kind===k)||{}).available;
+    el.className='server-status online';
+    const n=K=>S.engines.filter(e=>e.available).length;
+    txt.textContent=`融合就绪 · ${n()} 个引擎可用`;
+    // 按可用性禁用选项
+    const map={source:'source',alpha:'alpha',ai:'ai',opencv:'opencv'};
+    Object.entries(map).forEach(([k,val])=>{
+      const opt=document.querySelector(`#engine option[value="${val}"]`);
+      if(opt) opt.disabled=!on(k);
+    });
+    const srcOpt=document.querySelector('#engine option[value="source"]');
+    if(srcOpt && !on('source')) srcOpt.textContent='引擎A · 需配置解析服务';
+  }catch(err){
+    S.serverOnline=false;
+    el.className='server-status offline';
+    txt.textContent='演示模式（后端未启动）';
+  }
+}
+
+/* ============ 工具函数 ============ */
+function setFlow(n){
+  document.querySelectorAll('.flow-step').forEach(s=>{
+    const i=+s.dataset.step;
+    s.classList.toggle('done',i<n);s.classList.toggle('active',i===n);
+  });
+}
+function downloadResult(){
+  if(!S.resultData)return;
+  const a=document.createElement('a');a.href=S.resultData;a.download='净像_修复结果.png';a.click();
+  toast('已导出修复结果');
+}
+function resetAll(){
+  S.img=null;S.rects=[];S.resultData=null;
+  $('editor').classList.remove('active');$('compare').classList.remove('active');
+  dz.style.display='flex';$('fileInput').value='';$('fileInfo').textContent='尚未选择文件';
+  setFlow(1);checkReady();window.scrollTo({top:0,behavior:'smooth'});
+}
+let toastTimer;
+function toast(msg){
+  const t=$('toast');t.textContent=msg;t.classList.add('show');
+  clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2400);
+}
+
+/* 页面加载后检测后端服务 */
+window.addEventListener('DOMContentLoaded',checkServer);
+</script>
+</body>
+</html>

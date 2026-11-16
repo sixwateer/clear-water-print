@@ -1,0 +1,13 @@
+# 基础依赖（必装，开箱即用 OpenCV 引擎）
+fastapi>=0.110
+uvicorn[standard]>=0.27
+python-multipart>=0.0.9
+pillow>=10.0
+opencv-python-headless>=4.8
+numpy>=1.24
+
+# ---- 可选：LaMA AI 高质量引擎（约 200MB 模型 + torch）----
+# 有 NVIDIA GPU 时建议安装，CPU 也可运行但较慢。
+# 安装步骤见 README.md。取消下面注释即可随基础依赖一起装：
+# torch>=2.1
+# simple-lama-inpainting>=1.1

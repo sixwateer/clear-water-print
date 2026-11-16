@@ -1,0 +1,71 @@
+<view class="page">
+  <view class="hero">
+    <text class="brand">净像 · 去水印</text>
+    <text class="subtitle">框住水印，一键复原。图片只在本机处理，不上传。</text>
+  </view>
+
+  <!-- 未选图：上传引导 -->
+  <view class="card upload-card" wx:if="{{!hasImage}}">
+    <view class="upload-ico">＋</view>
+    <text class="upload-title">选择一张图片</text>
+    <text class="upload-desc">支持相册或拍照 · JPG / PNG</text>
+    <button class="btn-primary" bindtap="chooseImage">选择图片</button>
+  </view>
+
+  <block wx:else>
+    <!-- 画布 + 框选 -->
+    <view class="card">
+      <view class="card-head">
+        <text class="card-title">{{processed ? '修复结果' : '框选水印'}}</text>
+        <text class="card-hint">{{processed ? '预览效果' : '在图上拖动框住水印'}}</text>
+      </view>
+
+      <!-- 处理前：可交互画布 -->
+      <view class="canvas-box" wx:if="{{!processed}}">
+        <canvas type="2d" id="stage" class="stage"
+          style="width:{{displayW}}px;height:{{displayH}}px;"
+          bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd"></canvas>
+      </view>
+      <!-- 处理后：结果图 -->
+      <view class="canvas-box" wx:else>
+        <image class="result-img" src="{{resultPath}}" mode="widthFix"></image>
+      </view>
+
+      <view class="box-tools" wx:if="{{!processed}}">
+        <button class="btn-mini" size="mini" bindtap="autoBox">自动框右下角</button>
+        <button class="btn-mini" size="mini" bindtap="clearBox">清除框选</button>
+      </view>
+    </view>
+
+    <!-- 处理结果操作 -->
+    <view class="card" wx:if="{{processed}}">
+      <button class="btn-primary" bindtap="saveResult">保存到相册</button>
+      <button class="btn-ghost" bindtap="reset">处理下一张</button>
+    </view>
+
+    <!-- 设置面板 -->
+    <view class="card" wx:if="{{!processed}}">
+      <text class="section-label">修复方式</text>
+      <view class="mode-list">
+        <view wx:for="{{modes}}" wx:key="key"
+          class="mode-item {{mode === item.key ? 'active' : ''}}"
+          data-key="{{item.key}}" bindtap="setMode">
+          <text>{{item.label}}</text>
+        </view>
+      </view>
+      <text class="mode-desc">{{modeDesc[mode]}}</text>
+
+      <view class="auth-row" bindtap="toggleAuth">
+        <view class="checkbox {{authorized ? 'checked' : ''}}">{{authorized ? '✓' : ''}}</view>
+        <text class="auth-text">我确认对此内容拥有处理权或已获授权</text>
+      </view>
+      <view class="compliance">{{compliance}}</view>
+
+      <button class="btn-primary {{busy ? 'disabled' : ''}}" disabled="{{busy}}" bindtap="process">
+        {{busy ? '修复中…' : '开始修复'}}
+      </button>
+    </view>
+  </block>
+
+  <view class="footer">净像 · 去水印 小程序版 v1.0 · 本地处理</view>
+</view>

@@ -1,0 +1,71 @@
+# ============================================================
+# 净像 Watermark Studio · Git 忽略规则
+# 目标：只提交源码、原型与最终版文档；排除产物、缓存、密钥
+# 注意：.gitignore 的行尾 # 不是注释，注释必须独占一行
+# ============================================================
+
+# ---------- Python 缓存与构建产物 ----------
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+dist/
+*.egg-info/
+.eggs/
+*.egg
+
+# ---------- 虚拟环境 ----------
+venv/
+.venv/
+env/
+ENV/
+
+# ---------- 测试 / 运行产物 ----------
+.pytest_cache/
+.coverage
+htmlcov/
+output/
+code/test_input.png
+
+# ---------- 本地密钥与配置（永不提交）----------
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+credentials*.json
+token*.txt
+secret*
+
+# ---------- AI 模型权重（体积大，按需下载）----------
+models/
+*.pth
+*.ckpt
+*.onnx
+*.engine
+*.safetensors
+
+# ---------- 日志与临时文件 ----------
+*.log
+*.tmp
+*.bak
+*.swp
+headers.txt
+v2headers.tmp
+
+# ---------- 编辑器 / 操作系统 ----------
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ---------- 本项目：运行环境产物 ----------
+__pycache__/
+*.pyc
+models/
+*.pth
+*.onnx
+# 说明：旧版文档已统一移入 07_历史归档/ 留档，不再单独忽略
