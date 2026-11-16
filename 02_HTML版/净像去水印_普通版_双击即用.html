@@ -131,6 +131,19 @@ select.select{width:100%;padding:9px 12px;border:1px solid var(--line);border-ra
 .tips{margin-top:14px;padding:14px 16px;background:rgba(91,110,225,.06);border:1px solid rgba(91,110,225,.16);border-radius:10px;font-size:12px;color:var(--ink-2);line-height:1.7}
 .tips b{color:var(--accent)}
 
+/* 保存面板（移动端/下载受限时的兜底） */
+.save-sheet{position:fixed;inset:0;background:rgba(16,22,32,.55);z-index:60;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
+.save-sheet.show{display:flex}
+.save-sheet-inner{width:100%;max-width:420px;background:var(--surface);border-radius:18px;box-shadow:0 18px 60px rgba(0,0,0,.28);padding:18px 18px 20px}
+.ss-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
+.ss-title{font-size:16px;font-weight:700}
+.ss-close{width:30px;height:30px;border:none;border-radius:8px;background:#EEF1F5;color:var(--ink-2);font-size:20px;line-height:1;cursor:pointer}
+.ss-close:hover{background:#E2E7EE}
+.ss-tip{font-size:12.5px;color:var(--ink-2);line-height:1.6;margin-bottom:12px}
+.ss-tip b{color:var(--primary-dark)}
+.save-sheet img{display:block;width:100%;max-height:55vh;object-fit:contain;background:#0E141B;border-radius:10px}
+.ss-note{font-size:11.5px;color:var(--ink-3);line-height:1.6;margin:10px 0 0}
+
 /* Toast / 页脚 */
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--ink);color:#fff;padding:12px 22px;border-radius:11px;font-size:13px;opacity:0;transition:all .35s cubic-bezier(.2,.8,.2,1);z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.2)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -197,6 +210,7 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
             <button class="tool active" id="toolRect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>框选水印</button>
             <button class="tool" id="toolUndo" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>撤销一个框</button>
             <button class="tool" id="toolClear" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除全部</button>
+            <button class="tool" id="toolReselect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>更换图片</button>
             <span class="tool-hint">在图片上按住鼠标拖拽，框住水印</span>
           </div>
         </div>
@@ -252,6 +266,7 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
         <div class="result-actions">
           <button class="btn-primary" style="width:auto;padding:12px 28px" onclick="downloadResult()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>下载修复结果</button>
           <button class="tool" style="padding:12px 24px" onclick="resetAll()">处理下一张</button>
+          <button class="tool" style="padding:12px 24px" onclick="resetAll(true)">重新选图</button>
         </div>
       </div>
     </div>
@@ -276,6 +291,19 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
 </footer>
 
 <div class="toast" id="toast"></div>
+
+<!-- 保存面板：移动端或浏览器禁用自动下载时，展示图片供长按保存 -->
+<div class="save-sheet" id="saveSheet" role="dialog" aria-modal="true" aria-label="保存修复结果">
+  <div class="save-sheet-inner">
+    <div class="ss-head">
+      <div class="ss-title">保存修复结果</div>
+      <button class="ss-close" id="ssClose" type="button" aria-label="关闭">×</button>
+    </div>
+    <div class="ss-tip" id="ssTip">如未自动下载，请<b>长按下方图片</b>并选择「保存到相册」；电脑上可右键图片选「图片另存为」。</div>
+    <img id="ssImg" alt="修复结果，长按可保存">
+    <div class="ss-note">保存后即完成。若图片过大导致保存失败，可换用 Chrome / Edge 浏览器重试。</div>
+  </div>
+</div>
 
 <script>
 /* ============================================================
@@ -309,17 +337,26 @@ let baseImage=null;
    上传 / 内置示例
    ============================================================ */
 const dz=$('dropzone'), fi=$('fileInput');
+let loadSeq=0; // 加载序号：防止快速连续选图时，旧图 onload 后到覆盖新图
 dz.onclick=()=>fi.click();
 dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')};
 dz.ondragleave=()=>dz.classList.remove('drag');
-dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])};
-fi.onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0])};
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files&&e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])};
+fi.onchange=e=>{
+  const f=e.target.files&&e.target.files[0];
+  if(f)loadFile(f);
+  // 关键：清空 value，保证“撤销/取消后再次选择同一张图片”仍能触发 change
+  try{e.target.value=''}catch(_){}
+};
+// 用户在选择框点“取消”时不会触发 change；监听 cancel 事件可给出轻量反馈（不破坏状态）
+fi.addEventListener('cancel',()=>{/* 用户取消，保持当前状态不变 */});
 $('btnExample').onclick=e=>{e.stopPropagation();loadExample()};
 
 function loadFile(file){
-  if(!file.type.startsWith('image/')){toast('请选择图片文件');return}
+  if(!file||!file.type||!file.type.startsWith('image/')){toast('请选择 JPG / PNG / WEBP 图片');return}
   const reader=new FileReader();
-  reader.onload=ev=>loadImageSrc(ev.target.result,file.name);
+  reader.onerror=()=>toast('读取图片失败，请重新选择');
+  reader.onload=ev=>loadImageSrc(ev.target.result,file.name||'已选图片');
   reader.readAsDataURL(file);
 }
 
@@ -347,18 +384,38 @@ function loadExample(){
 function roundRect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
 
 function loadImageSrc(src,name){
+  const seq=++loadSeq;
   const img=new Image();
   img.onload=()=>{
+    if(seq!==loadSeq)return; // 已有更新的一次选择，丢弃这次过期结果
+    // 加载新图：完整重置所有“上一轮”状态，避免残留预览/结果/按钮文字
+    resetImageState();
     baseImage=img;
     S.scale=Math.min(1,CONFIG.maxDisplayWidth/img.width);
     stage.width=Math.round(img.width*S.scale);
     stage.height=Math.round(img.height*S.scale);
     S.rects=[];S.resultData=null;
     $('fileInfo').textContent=`${name} · ${img.width}×${img.height}`;
+    $('btnText').textContent='开始修复';
     dz.style.display='none';$('editor').classList.add('active');
     setFlow(2);draw();checkReady();
   };
+  img.onerror=()=>{
+    if(seq!==loadSeq)return;
+    // 图片损坏/格式不支持：安全回到上传步骤并提示，不留下半加载状态
+    resetAll();
+    toast('图片加载失败，请换一张图片重试');
+  };
   img.src=src;
+}
+
+// 仅重置“图片相关”的会话状态，不动设置项（修复方式/力度等保留）
+// 注意：不递增 loadSeq，避免使刚通过校验的本次加载失效；在途旧加载由调用方递增的 seq 拦截
+function resetImageState(){
+  S.rects=[];S.resultData=null;
+  S.drawing=false;S.start=null;S.cur=null;
+  $('compare').classList.remove('active');
+  closeSaveSheet();
 }
 
 /* ============================================================
@@ -392,6 +449,7 @@ stage.addEventListener('touchstart',down,{passive:false});stage.addEventListener
 $('toolRect').onclick=()=>toast('在图片上按住鼠标拖拽，框住水印');
 $('toolUndo').onclick=()=>{S.rects.pop();draw();checkReady();toast('已撤销上一个框')};
 $('toolClear').onclick=()=>{S.rects=[];draw();checkReady();toast('已清除全部框选')};
+$('toolReselect').onclick=()=>{resetAll(true)};
 
 /* ============================================================
    面板交互
@@ -569,16 +627,89 @@ box.addEventListener('touchstart',e=>{dragging=true;slide(e)},{passive:false});
 window.addEventListener('touchmove',e=>{if(dragging)slide(e)},{passive:false});
 window.addEventListener('touchend',()=>dragging=false);
 
-function downloadResult(){
-  if(!S.resultData)return;
-  const a=document.createElement('a');a.href=S.resultData;a.download='净像_修复结果.png';a.click();
-  toast('已下载修复结果');
+// dataURL -> Blob：用 Blob/objectURL 下载，避免超大 dataURL 在部分浏览器被拒绝
+function dataURLToBlob(dataUrl){
+  const parts=String(dataUrl).split(',');
+  const mime=(parts[0].match(/:(.*?);/)||[])[1]||'image/png';
+  const bin=atob(parts[1]||'');
+  const len=bin.length, bytes=new Uint8Array(len);
+  for(let i=0;i<len;i++)bytes[i]=bin.charCodeAt(i);
+  return new Blob([bytes],{type:mime});
 }
-function resetAll(){
+
+function downloadResult(){
+  if(!S.resultData){toast('请先修复图片再下载');return}
+  const fileName='净像_修复结果.png';
+  const ua=navigator.userAgent||'';
+  const isMobile=/Android|iPhone|iPad|iPod|Mobile|MicroMessenger|Weibo|QQ\//i.test(ua);
+  const isIOS=/iPad|iPhone|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+
+  // 方案 1：现代浏览器标准下载（Blob + objectURL + 临时 a 节点）
+  try{
+    const blob=dataURLToBlob(S.resultData);
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement('a');
+    a.href=url;a.download=fileName;
+    a.style.display='none';
+    a.rel='noopener';
+    document.body.appendChild(a);      // 关键：必须插入 DOM，部分浏览器才响应 click
+    a.click();
+    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url)},1500);
+    // 移动端（尤其 iOS/微信）常忽略 download，需提示用户确认，并给出保存面板兜底
+    if(isMobile){
+      toast('已触发下载，如未保存到相册可长按下方图片');
+      setTimeout(()=>openSaveSheet(S.resultData),400);
+    }else{
+      toast('已开始下载修复结果');
+    }
+    return;
+  }catch(err){
+    console.error('objectURL 下载失败，尝试备用方式：',err);
+  }
+
+  // 方案 2：直接用 dataURL + a.download（老浏览器兜底）
+  try{
+    const a=document.createElement('a');
+    a.href=S.resultData;a.download=fileName;a.style.display='none';
+    document.body.appendChild(a);a.click();document.body.removeChild(a);
+    toast('已触发下载，请检查下载目录');
+    return;
+  }catch(err2){
+    console.error('dataURL 下载失败，打开保存面板：',err2);
+  }
+
+  // 方案 3：以上都失败，展示图片让用户手动长按/右键保存
+  openSaveSheet(S.resultData);
+  toast('浏览器阻止了自动下载，请长按图片保存');
+}
+
+// 打开/关闭保存面板
+function openSaveSheet(src){
+  const sheet=$('saveSheet');
+  $('ssImg').src=src||S.resultData||'';
+  sheet.classList.add('show');
+}
+function closeSaveSheet(){
+  const sheet=$('saveSheet');
+  if(sheet)sheet.classList.remove('show');
+}
+$('ssClose').onclick=closeSaveSheet;
+$('saveSheet').onclick=e=>{if(e.target===$('saveSheet'))closeSaveSheet()};
+document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSaveSheet()});
+
+// 重置：openNext=true 表示自动打开文件选择框，便于“撤销后重新选择图片”
+function resetAll(openNext){
+  loadSeq++;                       // 让在途加载失效
   S.rects=[];S.resultData=null;
+  S.drawing=false;S.start=null;S.cur=null;
   $('editor').classList.remove('active');$('compare').classList.remove('active');
-  dz.style.display='flex';$('fileInput').value='';$('fileInfo').textContent='尚未选择图片';
+  $('btnText').textContent='开始修复';
+  closeSaveSheet();
+  dz.style.display='flex';
+  try{$('fileInput').value=''}catch(_){}
+  $('fileInfo').textContent='尚未选择图片';
   setFlow(1);checkReady();window.scrollTo({top:0,behavior:'smooth'});
+  if(openNext===true)setTimeout(()=>fi.click(),120);
 }
 function setFlow(n){
   document.querySelectorAll('.flow-step').forEach(s=>{
