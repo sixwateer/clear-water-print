@@ -36,6 +36,28 @@ Page({
     this.setData({ compliance: app.globalData.compliance });
   },
 
+  // 获取设备像素比，兼容新旧基础库（getSystemInfoSync 已逐步废弃）
+  _getDpr: function () {
+    try {
+      if (wx.getWindowInfo) {
+        var info = wx.getWindowInfo();
+        if (info && info.pixelRatio) return info.pixelRatio;
+      }
+    } catch (e) {}
+    try {
+      return (wx.getSystemInfoSync().pixelRatio) || 1;
+    } catch (e) {}
+    return 1;
+  },
+
+  // 读取触摸点相对画布的坐标，部分机型只提供 clientX/clientY
+  _touchPos: function (t) {
+    return {
+      x: (t.x != null ? t.x : t.clientX) || 0,
+      y: (t.y != null ? t.y : t.clientY) || 0
+    };
+  },
+
   // 选择图片
   chooseImage: function () {
     const that = this;
@@ -79,7 +101,7 @@ Page({
     query.select('#stage').fields({ node: true, size: true }).exec(function (res) {
       const canvas = res[0].node;
       const ctx = canvas.getContext('2d');
-      const dpr = wx.getSystemInfoSync().pixelRatio;
+      const dpr = this._getDpr();
       canvas.width = that.data.displayW * dpr;
       canvas.height = that.data.displayH * dpr;
       ctx.scale(dpr, dpr);
@@ -104,7 +126,7 @@ Page({
   // 触摸开始
   onTouchStart: function (e) {
     if (!this.data.hasImage || this.data.processed) return;
-    const t = e.touches[0];
+    const t = this._touchPos(e.touches[0]);
     this.setData({ drawing: true });
     this._sx = t.x; this._sy = t.y;
   },
@@ -112,7 +134,7 @@ Page({
   // 触摸移动
   onTouchMove: function (e) {
     if (!this.data.drawing) return;
-    const t = e.touches[0];
+    const t = this._touchPos(e.touches[0]);
     const x = Math.min(this._sx, t.x), y = Math.min(this._sy, t.y);
     const w = Math.abs(t.x - this._sx), h = Math.abs(t.y - this._sy);
     this._drawBase({ x: x, y: y, w: w, h: h });
@@ -121,7 +143,7 @@ Page({
   // 触摸结束
   onTouchEnd: function (e) {
     if (!this.data.drawing) return;
-    const t = e.changedTouches[0];
+    const t = this._touchPos(e.changedTouches[0]);
     const x = Math.min(this._sx, t.x), y = Math.min(this._sy, t.y);
     const w = Math.abs(t.x - this._sx), h = Math.abs(t.y - this._sy);
     this.setData({ drawing: false });

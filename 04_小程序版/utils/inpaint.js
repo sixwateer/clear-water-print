@@ -33,30 +33,39 @@ function laplaceFill(data, W, H, x, y, w, h, iters, pad) {
   if (w <= 0 || h <= 0) return;
   const lw = w + pad * 2, lh = h + pad * 2, N = lw * lh;
   const R = new Float32Array(N), G = new Float32Array(N), B = new Float32Array(N);
+  const valid = new Uint8Array(N); // 边界采样点是否落在框外的有效背景上
   let br = 0, bg = 0, bb = 0, bn = 0;
   for (let j = 0; j < lh; j++) for (let i = 0; i < lw; i++) {
-    let gx = Math.max(0, Math.min(W - 1, x - pad + i));
-    let gy = Math.max(0, Math.min(H - 1, y - pad + j));
     const k = j * lw + i;
     const inner = i >= pad && i < lw - pad && j >= pad && j < lh - pad;
     if (!inner) {
-      // 框贴图片边缘时 clamp 会采到框内的水印像素，镜像到最近的框外位置
+      let gx = Math.max(0, Math.min(W - 1, x - pad + i));
+      let gy = Math.max(0, Math.min(H - 1, y - pad + j));
+      // clamp 会采到框内的水印像素，镜像到最近的框外位置
       if (gx >= x && gx < x + w && gy >= y && gy < y + h) {
         const dl = gx - x + 1, dr = (x + w) - gx, dt = gy - y + 1, db = (y + h) - gy;
         const m = Math.min(dl, dr, dt, db);
-        if (m === dl) gx = Math.max(0, x - 1);
-        else if (m === dr) gx = Math.min(W - 1, x + w);
-        else if (m === dt) gy = Math.max(0, y - 1);
-        else gy = Math.min(H - 1, y + h);
+        if (m === dl) gx = x - 1;
+        else if (m === dr) gx = x + w;
+        else if (m === dt) gy = y - 1;
+        else gy = y + h;
       }
-      const s = (gy * W + gx) * 4;
-      R[k] = data[s]; G[k] = data[s + 1]; B[k] = data[s + 2];
-      br += data[s]; bg += data[s + 1]; bb += data[s + 2]; bn++;
+      // 镜像后若仍落在框内或越出图像（框贴边/贴角），说明该方向没有背景可采样，标记为无效
+      if (gx < 0 || gx >= W || gy < 0 || gy >= H || (gx >= x && gx < x + w && gy >= y && gy < y + h)) {
+        valid[k] = 0;
+      } else {
+        const s = (gy * W + gx) * 4;
+        R[k] = data[s]; G[k] = data[s + 1]; B[k] = data[s + 2];
+        br += data[s]; bg += data[s + 1]; bb += data[s + 2]; bn++;
+        valid[k] = 1;
+      }
     }
   }
-  br /= bn || 1; bg /= bn || 1; bb /= bn || 1;
-  for (let j = pad; j < lh - pad; j++) for (let i = pad; i < lw - pad; i++) {
-    const k = j * lw + i; R[k] = br; G[k] = bg; B[k] = bb;
+  if (bn === 0) { br = data[0]; bg = data[1]; bb = data[2]; } // 极端：整图皆框，用角落色兜底
+  else { br /= bn; bg /= bn; bb /= bn; }
+  // 内部点与无效边界点统一初始化为边缘均色，避免无效点以 0（黑色）参与扩散导致修复区发暗
+  for (let k = 0; k < N; k++) {
+    if (!valid[k]) { R[k] = br; G[k] = bg; B[k] = bb; }
   }
   for (let it = 0; it < iters; it++) {
     for (let j = pad; j < lh - pad; j++) {

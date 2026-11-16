@@ -24,7 +24,8 @@
       <view class="canvas-box" wx:if="{{!processed}}">
         <canvas type="2d" id="stage" class="stage"
           style="width:{{displayW}}px;height:{{displayH}}px;"
-          bindtouchstart="onTouchStart" bindtouchmove="onTouchMove" bindtouchend="onTouchEnd"></canvas>
+          disable-scroll="true"
+          bindtouchstart="onTouchStart" catchtouchmove="onTouchMove" bindtouchend="onTouchEnd"></canvas>
       </view>
       <!-- 处理后：结果图 -->
       <view class="canvas-box" wx:else>
