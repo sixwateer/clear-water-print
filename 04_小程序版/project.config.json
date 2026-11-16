@@ -1,5 +1,5 @@
 {
-  "description": "净像 · 去水印小程序（原生微信小程序）",
+  "description": "净像 · 图片修复（原生微信小程序，图片本地处理，不上传）",
   "packOptions": {
     "ignore": [
       {

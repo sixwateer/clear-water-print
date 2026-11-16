@@ -20,7 +20,7 @@ Page({
     mode: 'smart',
     modeDesc: {
       smart: '智能修复：适合纯色/渐变背景，近乎无痕（推荐）',
-      average: '快速填充：适合小面积水印，速度最快',
+      average: '快速填充：适合小面积瑕疵，速度最快',
       texture: '纹理平移：适合草地、砖墙等重复纹理背景'
     },
     modes: [
@@ -151,7 +151,7 @@ Page({
       const box = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
       this.setData({ box: box });
       this._drawBase(box);
-      wx.showToast({ title: '已框选水印', icon: 'success' });
+      wx.showToast({ title: '已框选区域', icon: 'success' });
     }
   },
 
@@ -185,7 +185,7 @@ Page({
   // 核心：执行修复
   process: function () {
     const that = this;
-    if (!this.data.box) { wx.showToast({ title: '请先框选水印', icon: 'none' }); return; }
+    if (!this.data.box) { wx.showToast({ title: '请先框选要修复的区域', icon: 'none' }); return; }
     if (!this.data.authorized) { wx.showToast({ title: '请先勾选使用确认', icon: 'none' }); return; }
     this.setData({ busy: true });
     wx.showLoading({ title: '修复中…' });
@@ -257,5 +257,10 @@ Page({
     this.setData({
       hasImage: false, box: null, resultPath: '', processed: false, authorized: false
     });
+  },
+
+  // 跳转用户协议与隐私政策
+  goPrivacy: function () {
+    wx.navigateTo({ url: '/pages/privacy/privacy' });
   }
 });

@@ -1,0 +1,66 @@
+.page {
+  box-sizing: border-box;
+  min-height: 100vh;
+  padding: 32rpx 24rpx 80rpx;
+  background: #F5F7F9;
+}
+.doc {
+  box-sizing: border-box;
+  padding: 40rpx 32rpx;
+  background: #FFFFFF;
+  border-radius: 24rpx;
+  border: 2rpx solid #E7EBF0;
+  box-shadow: 0 8rpx 30rpx rgba(24,39,60,0.05);
+}
+.title {
+  display: block;
+  font-size: 36rpx;
+  font-weight: 700;
+  color: #1C2430;
+  text-align: center;
+}
+.updated {
+  display: block;
+  margin-top: 14rpx;
+  margin-bottom: 28rpx;
+  font-size: 20rpx;
+  color: #93A0B0;
+  text-align: center;
+}
+.lead {
+  display: block;
+  margin-bottom: 26rpx;
+  padding: 20rpx;
+  background: rgba(15,158,142,0.07);
+  border-radius: 14rpx;
+  color: #0B6E64;
+  font-size: 24rpx;
+  line-height: 1.75;
+}
+.h2 {
+  display: block;
+  margin-top: 30rpx;
+  margin-bottom: 12rpx;
+  font-size: 27rpx;
+  font-weight: 650;
+  color: #0F9E8E;
+}
+.p {
+  display: block;
+  margin-bottom: 14rpx;
+  color: #4A5666;
+  font-size: 24rpx;
+  line-height: 1.85;
+  text-align: justify;
+}
+.b {
+  color: #C0392B;
+  font-weight: 600;
+}
+.end {
+  display: block;
+  margin-top: 40rpx;
+  color: #B0BAC8;
+  font-size: 20rpx;
+  text-align: center;
+}

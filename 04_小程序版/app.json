@@ -1,9 +1,10 @@
 {
   "pages": [
-    "pages/index/index"
+    "pages/index/index",
+    "pages/privacy/privacy"
   ],
   "window": {
-    "navigationBarTitleText": "净像 · 去水印",
+    "navigationBarTitleText": "净像图片修复",
     "navigationBarBackgroundColor": "#0F9E8E",
     "navigationBarTextStyle": "white",
     "backgroundColor": "#F5F7F9",

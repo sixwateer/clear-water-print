@@ -1,7 +1,7 @@
 <view class="page">
   <view class="hero">
-    <text class="brand">净像 · 去水印</text>
-    <text class="subtitle">框住水印，一键复原。图片只在本机处理，不上传。</text>
+    <text class="brand">净像 · 图片修复</text>
+    <text class="subtitle">框住瑕疵，一键修复。图片只在本机处理，不上传。</text>
   </view>
 
   <!-- 未选图：上传引导 -->
@@ -16,8 +16,8 @@
     <!-- 画布 + 框选 -->
     <view class="card">
       <view class="card-head">
-        <text class="card-title">{{processed ? '修复结果' : '框选水印'}}</text>
-        <text class="card-hint">{{processed ? '预览效果' : '在图上拖动框住水印'}}</text>
+        <text class="card-title">{{processed ? '修复结果' : '框选区域'}}</text>
+        <text class="card-hint">{{processed ? '预览效果' : '在图上拖动框住要修复的区域'}}</text>
       </view>
 
       <!-- 处理前：可交互画布 -->
@@ -68,5 +68,8 @@
     </view>
   </block>
 
-  <view class="footer">净像 · 去水印 小程序版 v1.0 · 本地处理</view>
+  <view class="footer">
+    <text class="privacy-link" bindtap="goPrivacy">用户协议与隐私政策</text>
+    <text>净像 · 图片修复 v1.0 · 全程本地处理</text>
+  </view>
 </view>
