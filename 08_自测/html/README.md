@@ -16,9 +16,13 @@ python make_e2e.py    # 生成浏览器端到端测试页 _tmp/e2e.html
 浏览器端到端（验证真实页面逻辑：识别/框选/三模式/三档/整图框）：
 
 ```bash
-"/c/Program Files/Google/Chrome/Application/chrome.exe" --headless \
-  --disable-gpu --virtual-time-budget=40000 --dump-dom _tmp/e2e.html | grep "<title>"
+"/c/Program Files/Google/Chrome/Application/chrome.exe" --headless=new \
+  --disable-gpu --virtual-time-budget=40000 \
+  --dump-dom "file:///D:/去水印/08_自测/html/_tmp/e2e.html" | grep -o "<title>[^<]*</title>"
 ```
+
+注意必须用 `file:///` 绝对路径：新版 Chrome 把相对路径当网址解析，会报
+`ERR_NAME_NOT_RESOLVED` 且不输出任何内容。
 
 结果在 `<title>` 里：`E2E|OK 贴边识别(...)|OK 自动框(...)|...|DONE`。
 
@@ -47,6 +51,9 @@ python make_e2e.py    # 生成浏览器端到端测试页 _tmp/e2e.html
 - `对比图.png`：人工复核用（每次 `compare.py` 覆盖）。
 - `浏览器实跑_修复前后.png`：真实浏览器里走完整流程（选图→框选→修复）
   后截的对比图，用于人工确认最终观感。
+- `移动端_390px.png`：390×844 手机视口渲染结果（用同源 iframe 定宽模拟，
+  媒体查询与 vw 都按 390 生效）。用于确认窄屏下导航不挤压、步骤条 2×2 不竖排、
+  无横向溢出。
 
 `_tmp/` 已在 `.gitignore` 中忽略，不进仓库。
 

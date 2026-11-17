@@ -156,7 +156,12 @@ footer{text-align:center;padding:26px 0 34px;color:var(--ink-3);font-size:12px;b
 footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
 @media(max-width:860px){
   .workspace{grid-template-columns:1fr} .hero h1{font-size:28px}
-  .flow{flex-wrap:wrap;gap:10px} .flow-line{display:none} .help-grid{grid-template-columns:1fr}
+  .flow-line{display:none} .help-grid{grid-template-columns:1fr}
+  /* 窄屏：导航只留品牌；步骤条改 2×2 网格，否则 flex:1 会把文字压成竖排 */
+  .nav-tip{display:none} .brand{font-size:17px;white-space:nowrap}
+  .flow{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 10px;padding:14px 16px}
+  .flow-step{flex:none;white-space:nowrap;font-size:12.5px;gap:7px}
+  .flow-step .ic{width:26px;height:26px}
 }
 </style>
 </head>
