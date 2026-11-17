@@ -34,6 +34,7 @@
 ```
 D:\去水印\
 ├── README.md                        ← 本文件（项目总入口）
+├── CHANGELOG.md                     变更记录（每个版本改了什么、为什么改）
 ├── LICENSE                          MIT 许可证
 ├── .gitignore / .gitattributes
 │
@@ -115,6 +116,8 @@ python server.py
 | 后端边界与异常 | `python tests/test_api_robustness.py` | **19/19** 通过 |
 
 关键性能与质量指标：超大框 1582ms → **40ms**（多尺度扩散）；贴边场景边界色差 44.9 → **6.9**（镜像采样）；水印残影率修复后降至 **0**。
+
+每个版本具体改了什么、为什么改，见 [CHANGELOG.md](CHANGELOG.md)。
 
 ## 许可证
 
