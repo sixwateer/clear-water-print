@@ -809,22 +809,15 @@ function repair(){
     if(w<=0||h<=0)return;
     // 智能识别模式下用 effectiveMode（由 onBoxReady 判定），其余用手动选择
     const m=(S.mode==='auto')?S.effectiveMode:S.mode;
-    // 两种方式都先外扩框（覆盖抗锯齿边缘与投影阴影），再修复
-    const g=growRect(x,y,w,h,W,H);
-    if(m==='average'){
-      fillAverage(data,W,H,g.x,g.y,g.w,g.h);
-      repairedRects.push(g);
-    }else{
-      // 纹理背景与纯色/渐变统一走拉普拉斯扩散（等价于后端 Telea 扩散）：
-      // 整框从边界向内平滑重建，能彻底去除文字、不留残影，不依赖 OpenCV。
-      // 修复前先按短边比例外扩（growRect），把水印的抗锯齿边缘与投影阴影
-      // 一并纳入修复区，避免框外过渡像素被当边界保留形成浅色残边。
-      fillLaplace(data,W,H,g.x,g.y,g.w,g.h,CONFIG.autoIterations[S.iter]);
-      // 纹理模式下再做一次"邻近干净块高频回注"，把扩散抹平的纹理观感
-      // 补回来（失败/不安全时自动跳过，不影响去水印结果）
-      if(m==='texture')injectTexture(data,W,H,g);
-      repairedRects.push(g);
+    if(m!=='average'){
+      // 自然重建：平滑背景用 Coons 插值，纹理背景用多方向源块；严格只写回框内
+      naturalFill(data,W,H,x,y,w,h);
+      repairedRects.push({x,y,w,h});
+      return;
     }
+    // 快速填充模式：取边缘平均色（用户手动选择）
+    fillAverage(data,W,H,x,y,w,h);
+    repairedRects.push({x,y,w,h});
   });
 
   if(S.sharpen){
@@ -910,6 +903,108 @@ function fillAverage(data,W,H,x,y,w,h){
   if(n===0){const i=((H-1)*W+(W-1))*4;r=data[i];g=data[i+1];b=data[i+2]} // 极端：整图皆框，用右下角颜色兜底
   else{r/=n;g/=n;b/=n}
   for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++){const i=(yy*W+xx)*4;data[i]=r;data[i+1]=g;data[i+2]=b}
+}
+
+/* ============ 自然重建（对齐后端引擎）============
+   平滑背景（纯色/渐变/柔和光影）：Coons patch 双线性插值，边界严格吻合，
+     不产生暗斑或矩形边界；
+}
+
+/* ============ 自然重建：笔画级去除（对齐后端）============
+   对印刷在物体表面的文字/logo，只检测并修复"笔画"像素，
+   物体表面的颜色/纹理/光影完整保留；检测不到笔画（纯色块水印）时
+   退回 Coons 双线性插值整框重建。只写框内，框外逐字节不变。
+   ============================================================ */
+function naturalFill(data,W,H,x,y,w,h){
+  if(w<3||h<3)return;
+  // 1) 局部对比找笔画：比局部背景明显更暗（或更亮）的细线
+  const gray=new Float32Array(w*h);
+  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+    const k=((y+j)*W+(x+i))*4;
+    gray[j*w+i]=(data[k]+data[k+1]+data[k+2])/3;
+  }
+  const blurred=boxBlur1(gray,w,h,9);
+  const mask=new Uint8Array(w*h);
+  let darkN=0,lightN=0;
+  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+    const k=j*w+i,d=blurred[k]-gray[k];
+    if(d>30){mask[k]=1;darkN++}
+    if(-d>30)lightN++;
+  }
+  if(lightN>darkN&&lightN/(w*h)>0.02){
+    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+      const k=j*w+i;mask[k]=(gray[k]-blurred[k]>30)?1:0;
+    }
+  }
+  // 形态学闭运算+膨胀：连成完整笔画并覆盖抗锯齿边缘（对齐后端）
+  const dil=new Uint8Array(mask);
+  for(let it=0;it<2;it++){
+    const prev=Uint8Array.from(dil);
+    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+      if(!prev[j*w+i])continue;
+      for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){
+        const nj=j+dj,ni=i+di;
+        if(nj>=0&&nj<h&&ni>=0&&ni<w)dil[nj*w+ni]=1;
+      }
+    }
+  }
+  let dn2=0;for(let i=0;i<w*h;i++){if(dil[i])dn2++;mask[i]=dil[i]}
+  const cov=dn2/(w*h);
+  if(cov>=0.02&&cov<=0.85){
+    // 笔画级：多次扩散让边界颜色传播到笔画中心（宽笔画也能覆盖），
+    // 非笔画像素始终钉回原值，物体表面纹理完整保留。
+    const R=Float32Array.from(data);
+    for(let it=0;it<24;it++){
+      const prev=Float32Array.from(R);
+      for(let j=1;j<h-1;j++)for(let i=1;i<w;i++){
+        const k=j*w+i;if(!mask[k])continue;
+        const d=((y+j)*W+(x+i))*4;
+        for(let c=0;c<3;c++){
+          R[d+c]=(prev[d-4+c]+prev[d+4+c]+prev[d-W*4+c]+prev[d+W*4+c])*0.25;
+        }
+      }
+    }
+    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+      if(!mask[j*w+i])continue;
+      const k=((y+j)*W+(x+i))*4;
+      data[k]=R[k];data[k+1]=R[k+1];data[k+2]=R[k+2];
+    }
+    return;
+  }
+
+  // 2) 兜底：Coons patch 双线性插值整框重建
+  const pad=Math.max(8,Math.floor(Math.min(w,h)/2));
+  const ey1=Math.max(0,y-pad),ey2=Math.min(H,y+h+pad);
+  const ex1=Math.max(0,x-pad),ex2=Math.min(W,x+w+pad);
+  const eh=ey2-ey1,ew=ex2-ex1;
+  if(ew<3||eh<3)return;
+  const py0=y-ey1,px0=x-ex1;
+  const cy0=Math.max(0,py0-1),cy1=Math.min(eh-1,py0+h);
+  const cx0=Math.max(0,px0-1),cx1=Math.min(ew-1,px0+w);
+  for(let c=0;c<3;c++){
+    const top=new Float32Array(w),bot=new Float32Array(w);
+    const left=new Float32Array(h),right=new Float32Array(h);
+    for(let i=0;i<w;i++){
+      top[i]=data[((ey1+cy0)*W+(ex1+px0+i))*4+c];
+      bot[i]=data[((ey1+cy1)*W+(ex1+px0+i))*4+c];
+    }
+    for(let j=0;j<h;j++){
+      left[j]=data[((ey1+py0+j)*W+(ex1+cx0))*4+c];
+      right[j]=data[((ey1+py0+j)*W+(ex1+cx1))*4+c];
+    }
+    const c00=data[((ey1+cy0)*W+(ex1+cx0))*4+c],c01=data[((ey1+cy0)*W+(ex1+cx1))*4+c];
+    const c10=data[((ey1+cy1)*W+(ex1+cx0))*4+c],c11=data[((ey1+cy1)*W+(ex1+cx1))*4+c];
+    for(let j=0;j<h;j++){
+      const ty=j/Math.max(1,h-1);
+      for(let i=0;i<w;i++){
+        const tx=i/Math.max(1,w-1);
+        const vTB=top[i]*(1-ty)+bot[i]*ty;
+        const vLR=left[j]*(1-tx)+right[j]*tx;
+        const corner=(c00*(1-tx)+c01*tx)*(1-ty)+(c10*(1-tx)+c11*tx)*ty;
+        data[((y+j)*W+(x+i))*4+c]=vTB+vLR-corner;
+      }
+    }
+  }
 }
 
 // 方式2：拉普拉斯扩散（核心）。大框自动走多尺度加速。

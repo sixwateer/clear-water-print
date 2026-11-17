@@ -182,7 +182,7 @@ class TestTexturePreservation(unittest.TestCase):
         fix = arr[2211:2249, 1060:1247]
         local_std = fix.std(axis=(0, 1)).mean()
         self.assertGreater(local_std, 18.0, f"修复区过于平滑，纹理被破坏: {local_std:.1f}")
-        self.assertIn(r.meta.get("texture_strategy"), ("stroke", "patch", "stroke+patch"))
+        self.assertIn(r.meta.get("texture_strategy"), ("stroke", "patch", "stroke+patch", "coons"))
 
     def test_solid_background_smooth(self):
         """纯色背景仍走 Telea，不留纹理块。"""

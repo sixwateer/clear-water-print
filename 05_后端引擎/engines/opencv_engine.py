@@ -103,73 +103,79 @@ class OpenCVEngine(BaseEngine):
 
     # ---------------- 纹理融合核心 ----------------
     @staticmethod
-    def _feather_alpha(bw: int, bh: int) -> np.ndarray:
-        """生成羽化权重 (bh,bw)：框内绝大部分为 1，仅最外缘一圈平滑收敛到 0。
+    def _smooth_fill(bgr: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
+        """平滑背景填充：用框外边界作条件解拉普拉斯方程，纯色/渐变背景无痕。
 
-        关键：羽化带必须很薄（固定几像素），否则水印文字靠近框边界的部分
-        alpha≈0 无法被替换，会残留可见文字。这里用固定薄边 + 轻微高斯。
+        比 Telea 更适合大面积平滑区域——不会在中心留平色块，
+        颜色/光影渐变从边界自然延续进来。
         """
-        edge = max(2, min(5, min(bw, bh) // 6))
-        alpha = np.ones((bh, bw), np.float32)
-        # 四边各 edge 像素线性衰减到 0
-        ramp = np.linspace(0, 1, edge + 1)[:-1].astype(np.float32)  # 0..~0.8
-        alpha[:edge, :] = np.minimum(alpha[:edge, :], ramp[:, None])
-        alpha[-edge:, :] = np.minimum(alpha[-edge:, :], ramp[::-1, None])
-        alpha[:, :edge] = np.minimum(alpha[:, :edge], ramp[None, :])
-        alpha[:, -edge:] = np.minimum(alpha[:, -edge:], ramp[::-1][None, :])
-        alpha = cv2.GaussianBlur(alpha, (0, 0), 1.2)
-        # 抬升内部：>=0.5 直接拉到 1，保证水印文字被完全覆盖
-        alpha = np.where(alpha >= 0.9, 1.0, np.clip(alpha * 1.15, 0, 1))
-        return np.clip(alpha, 0, 1)
+        h, w = bgr.shape[:2]
+        bh, bw = y2 - y1, x2 - x1
+        # 取足够宽的外环作为边界条件：太窄会导致深色/亮色水印无法被完全冲淡。
+        pad = max(8, min(bw, bh) // 2)
+        ey1, ey2 = max(0, y1 - pad), min(h, y2 + pad)
+        ex1, ex2 = max(0, x1 - pad), min(w, x2 + pad)
+        R = bgr[ey1:ey2, ex1:ex2].astype(np.float32)
+        lh, lw = R.shape[:2]
+        py0, px0 = y1 - ey1, x1 - ex1
+        if lh < 3 or lw < 3:
+            return R[py0:py0 + bh, px0:px0 + bw]
 
-    @staticmethod
-    def _stroke_mask(box: np.ndarray) -> tuple[np.ndarray | None, float]:
-        """尝试从框内提取"文字笔画"级精确掩膜。
+        # 边界环（外圈）作固定条件；框内用环均值初始化，绝不能用含水印的原值。
+        ring = np.ones((lh, lw), bool)
+        ring[py0:py0 + bh, px0:px0 + bw] = False
+        if not ring.any():
+            ring[:1, :] = True
+        edge_mean = R[ring].mean(axis=0)
 
-        视频平台水印多为高亮、低饱和的文字。这类水印只占框内少部分像素，
-        直接对整框 inpaint 会毁掉背景纹理；而只修复笔画本身则能最大程度保留
-        原始纹理，几乎无违和感。
+        SR = R.copy()
+        # 双线性边界插值作为初值：保留光影渐变（比均匀均值自然得多），
+        # 且框内不含任何水印像素。
+        for c in range(3):
+            # 兜底必须是与边界等长的数组，不能是标量（贴边时 py0=0 会触发）
+            top = R[py0 - 1, px0:px0 + bw, c].copy() if py0 > 0 else np.full(bw, edge_mean[c], np.float32)
+            bot = R[py0 + bh, px0:px0 + bw, c].copy() if py0 + bh < lh else np.full(bw, edge_mean[c], np.float32)
+            left = R[py0:py0 + bh, px0 - 1, c].copy() if px0 > 0 else np.full(bh, edge_mean[c], np.float32)
+            right = R[py0:py0 + bh, px0 + bw, c].copy() if px0 + bw < lw else np.full(bh, edge_mean[c], np.float32)
+            tx = np.linspace(0, 1, bw, dtype=np.float32)
+            ty = np.linspace(0, 1, bh, dtype=np.float32)[:, None]
+            v_tb = top[None, :] * (1 - ty) + bot[None, :] * ty
+            v_lr = left[:, None] * (1 - tx) + right[:, None] * tx
+            # Coons patch：v_tb + v_lr - 双线性四角，保证四条边严格等于边界值。
+            # 直接相加取平均会在中心产生"鼓包/暗斑"，因为两路插值在角上不一致。
+            cy0, cy1 = max(0, py0 - 1), min(lh - 1, py0 + bh)
+            cx0, cx1 = max(0, px0 - 1), min(lw - 1, px0 + bw)
+            c00, c01 = R[cy0, cx0, c], R[cy0, cx1, c]
+            c10, c11 = R[cy1, cx0, c], R[cy1, cx1, c]
+            corner = ((c00 * (1 - tx) + c01 * tx)[None, :] * (1 - ty)
+                      + (c10 * (1 - tx) + c11 * tx)[None, :] * ty)
+            SR[py0:py0 + bh, px0:px0 + bw, c] = v_tb + v_lr - corner
 
-        Returns:
-            (mask|None, 覆盖率)：覆盖率过低时返回 None，交给整框纹理融合处理。
-        """
-        mx = box.max(axis=2)
-        mn = box.min(axis=2)
-        lum = box.astype(np.float32).mean(axis=2)
-        sat = (mx - mn) / (mx + 1)
-        # 高亮 + 低饱和 = 文字/水印笔画；木纹/皮肤饱和度显著更高
-        stroke = ((lum > 140) & (sat < 0.40)).astype(np.uint8) * 255
-        if stroke.size == 0:
-            return None, 0.0
-        coverage = float((stroke > 0).mean())
-        # 覆盖率过高说明整块都是亮的（纯色块水印），不适合笔画法
-        if coverage < 0.01 or coverage > 0.62:
-            return None, coverage
-        stroke = cv2.morphologyEx(stroke, cv2.MORPH_CLOSE, np.ones((5, 5), np.uint8))
-        # 膨胀覆盖抗锯齿边缘与文字阴影（实测 7x7 两次效果最佳）
-        stroke = cv2.dilate(stroke, np.ones((7, 7), np.uint8), iterations=2)
-        return stroke, coverage
+        # 少量迭代仅平滑插值接缝；边界钉回原值形成稳定条件
+        for _ in range(min(60, max(20, min(bw, bh) // 2))):
+            SR[1:-1, 1:-1] = (
+                SR[:-2, 1:-1] + SR[2:, 1:-1] + SR[1:-1, :-2] + SR[1:-1, 2:]
+            ) * 0.25
+            SR[ring] = R[ring]
 
-    @staticmethod
+        return SR[py0:py0 + bh, px0:px0 + bw]
+
     def _texture_fill(
+        self,
         bgr: np.ndarray,
         mask: np.ndarray,
         rects: list[dict],
         radius: int,
     ) -> tuple[np.ndarray, str]:
-        """纹理自然融合（混合策略）。
+        """自然重建：优先笔画级去除（保留物体纹理），兜底 Coons 插值。
 
-        策略一（笔画级，优先）：框内检出高亮低饱和文字 → 只修复笔画，保留整片纹理。
-        策略二（源块融合）：色块/图标类水印 → Telea 保底 + 最佳源块羽化融合。
-
-        Returns:
-            (结果图, 策略名 stroke|patch)
+        印刷在物体表面的 logo/文字：只检测并修复"笔画"像素，物体表面纹理
+        完整保留，这是最自然的结果。当框内没有可辨识笔画（纯色块/整片被遮盖）
+        时，退回 Coons 双线性插值整框重建。
         """
+        out = bgr.copy()
         h, w = bgr.shape[:2]
-        out = cv2.inpaint(bgr, mask, radius, cv2.INPAINT_TELEA)
-        used = "telea"
-        stroke_masks: list[tuple[int, int, np.ndarray]] = []
-        patch_rects: list[dict] = []
+        used = "coons"
 
         for r in rects:
             x1 = max(0, int(r.get("x", 0)))
@@ -180,78 +186,25 @@ class OpenCVEngine(BaseEngine):
             if bw < 8 or bh < 8:
                 continue
             box = bgr[y1:y2, x1:x2]
-            sm, cov = OpenCVEngine._stroke_mask(box)
-            if sm is not None:
-                stroke_masks.append((x1, y1, sm))
+            gray = cv2.cvtColor(box, cv2.COLOR_BGR2GRAY)
+            bg = cv2.GaussianBlur(gray, (0, 0), 9)
+            dark = np.clip(bg.astype(np.float32) - gray.astype(np.float32), 0, 255).astype(np.uint8)
+            _, strokes = cv2.threshold(dark, 30, 255, cv2.THRESH_BINARY)
+            cov = float((strokes > 0).mean())
+            if cov < 0.02:  # 没有暗笔画 → 试亮笔画（深色底上的白字）
+                light = np.clip(gray.astype(np.float32) - bg.astype(np.float32), 0, 255).astype(np.uint8)
+                _, strokes = cv2.threshold(light, 30, 255, cv2.THRESH_BINARY)
+                cov = float((strokes > 0).mean())
+            if 0.02 <= cov <= 0.45:
+                strokes = cv2.morphologyEx(strokes, cv2.MORPH_CLOSE, np.ones((3, 3), np.uint8))
+                strokes = cv2.dilate(strokes, np.ones((3, 3), np.uint8), iterations=1)
+                fine = np.zeros((h, w), np.uint8)
+                fine[y1:y2, x1:x2] = strokes
+                out = cv2.inpaint(bgr, fine, 3, cv2.INPAINT_TELEA)
+                used = "stroke" if used == "coons" else used + "+stroke"
             else:
-                patch_rects.append(r)
-
-        # 策略一：笔画级修复（对每个框把精确笔画写入独立 mask）
-        if stroke_masks:
-            fine = np.zeros((h, w), np.uint8)
-            for x1, y1, sm in stroke_masks:
-                sh, sw = sm.shape[:2]
-                fine[y1:y1 + sh, x1:x1 + sw] = np.maximum(
-                    fine[y1:y1 + sh, x1:x1 + sw], sm
-                )
-            out = cv2.inpaint(bgr, fine, 3, cv2.INPAINT_TELEA)
-            used = "stroke"
-
-        # 策略二：未能用笔画法的框，做源块羽化融合
-        for r in patch_rects:
-            x1 = max(0, int(r.get("x", 0)))
-            y1 = max(0, int(r.get("y", 0)))
-            x2 = min(w, int(r.get("x", 0) + r.get("w", 0)))
-            y2 = min(h, int(r.get("y", 0) + r.get("h", 0)))
-            bw, bh = x2 - x1, y2 - y1
-
-            cand_offsets = []
-            for dist_k in (1.15, 1.6, 2.2):
-                dy = int(bh * dist_k)
-                dx = int(bw * dist_k)
-                cand_offsets += [(0, -dy), (0, dy), (-dx, 0), (dx, 0)]
-
-            target = out[y1:y2, x1:x2].astype(np.float32)
-            margin = 2
-            ta, tb = max(0, y1 - margin), min(h, y2 + margin)
-            tl, tr = max(0, x1 - margin), min(w, x2 + margin)
-            ring_mean = bgr[ta:tb, tl:tr].astype(np.float32).reshape(-1, 3).mean(axis=0)
-
-            best_patch = None
-            best_score = float("inf")
-            for dx, dy in cand_offsets:
-                sx1, sy1 = x1 + dx, y1 + dy
-                sx2, sy2 = sx1 + bw, sy1 + bh
-                if sx1 < 0 or sy1 < 0 or sx2 > w or sy2 > h:
-                    continue
-                overlap = False
-                for rr in patch_rects:
-                    rx1, ry1 = int(rr.get("x", 0)), int(rr.get("y", 0))
-                    rx2, ry2 = rx1 + int(rr.get("w", 0)), ry1 + int(rr.get("h", 0))
-                    if sx1 < rx2 and sx2 > rx1 and sy1 < ry2 and sy2 > ry1:
-                        overlap = True
-                        break
-                if overlap:
-                    continue
-                cand = bgr[sy1:sy2, sx1:sx2].astype(np.float32)
-                color_diff = float(np.abs(cand.reshape(-1, 3).mean(axis=0) - ring_mean).mean())
-                cg = cv2.cvtColor(cand.astype(np.uint8), cv2.COLOR_BGR2GRAY)
-                tg = cv2.cvtColor(target.astype(np.uint8), cv2.COLOR_BGR2GRAY)
-                cand_grad = float(cv2.Laplacian(cg, cv2.CV_64F).var())
-                target_grad = float(cv2.Laplacian(tg, cv2.CV_64F).var())
-                struct_diff = abs(cand_grad - target_grad) / (target_grad + cand_grad + 1e-6)
-                score = color_diff * 0.55 + struct_diff * 45.0
-                if score < best_score:
-                    best_score = score
-                    best_patch = cand
-
-            if best_patch is None:
-                continue
-            alpha = OpenCVEngine._feather_alpha(bw, bh)[..., None]
-            blended = best_patch * alpha + target * (1 - alpha)
-            out[y1:y2, x1:x2] = np.clip(blended, 0, 255).astype(np.uint8)
-            used = "patch" if used == "telea" else used + "+patch"
-
+                out[y1:y2, x1:x2] = self._smooth_fill(bgr, x1, y1, x2, y2)
+                used = "coons" if used == "coons" else used + "+coons"
         return out, used
 
     # ---------------- 主入口 ----------------
@@ -282,9 +235,15 @@ class OpenCVEngine(BaseEngine):
             x2 = min(w, int(r.get("x", 0) + r.get("w", 0)))
             y2 = min(h, int(r.get("y", 0) + r.get("h", 0)))
             if x2 > x1 and y2 > y1:
-                cv2.rectangle(mask, (x1, y1), (x2, y2), 255, -1)
+                # cv2.rectangle 是闭区间，终点要减 1，与 [x1,x2) 的框语义一致，
+                # 否则 strict_mask 会多占一行/列，破坏"框外逐字节不变"。
+                cv2.rectangle(mask, (x1, y1), (x2 - 1, y2 - 1), 255, -1)
 
+        # 原始框 mask（严格边界，用于最终合成，保证框外逐字节不变）
+        strict_mask = mask.copy()
         radius, kernel = self._STRENGTH_MAP.get(int(strength), (5, 5))
+        # 扩张 mask 仅用于修复计算：覆盖水印抗锯齿边缘，避免浅色残边；
+        # 但最终只把原始框范围内的像素写回结果。
         mask = cv2.dilate(mask, np.ones((kernel, kernel), np.uint8), iterations=1)
 
         # auto：取第一个框做智能识别，texture 背景用纹理融合，其余用 Telea
@@ -305,9 +264,26 @@ class OpenCVEngine(BaseEngine):
             result_bgr = cv2.inpaint(bgr, mask, radius, cv2.INPAINT_TELEA)
             used_flag = cv2.INPAINT_TELEA
 
-        out = Image.fromarray(cv2.cvtColor(result_bgr, cv2.COLOR_BGR2RGB))
+        # 严格框内合成：扩张区域只参与计算，最终只有原始框内像素被写回，
+        # 兑现"未修复区域逐像素保持原样"的承诺。
+        final_bgr = bgr.copy()
+        final_bgr[strict_mask > 0] = result_bgr[strict_mask > 0]
+        out = Image.fromarray(cv2.cvtColor(final_bgr, cv2.COLOR_BGR2RGB))
         if enhance:
-            out = out.filter(ImageFilter.UnsharpMask(radius=1.2, percent=110, threshold=3))
+            # 只锐化修复过的区域，框外像素必须逐字节保持原样。
+            enhanced = out.filter(ImageFilter.UnsharpMask(radius=1.2, percent=110, threshold=3))
+            ea = np.asarray(enhanced)
+            oo = np.asarray(out).copy()
+            roi = np.zeros((h, w), bool)
+            for r in rects:
+                x1 = max(0, int(r.get("x", 0)))
+                y1 = max(0, int(r.get("y", 0)))
+                x2 = min(w, int(r.get("x", 0) + r.get("w", 0)))
+                y2 = min(h, int(r.get("y", 0) + r.get("h", 0)))
+                if x2 > x1 and y2 > y1:
+                    roi[y1:y2, x1:x2] = True
+            oo[roi] = ea[roi]
+            out = Image.fromarray(oo)
 
         elapsed = (time.perf_counter() - t0) * 1000
         flag_name = "NS" if used_flag == cv2.INPAINT_NS else "TELEA"
