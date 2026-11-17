@@ -9,7 +9,7 @@ REM ============================================================
 cd /d "%~dp0"
 
 echo.
-echo [1/5] 清理本地运行缓存...
+echo [1/6] 清理本地运行缓存...
 if exist "05_后端引擎\__pycache__"                 rd /s /q "05_后端引擎\__pycache__"
 if exist "05_后端引擎\engines\__pycache__"         rd /s /q "05_后端引擎\engines\__pycache__"
 if exist "05_后端引擎\pipeline\__pycache__"        rd /s /q "05_后端引擎\pipeline\__pycache__"
@@ -19,7 +19,12 @@ if exist "08_自测\html\_tmp"                       rd /s /q "08_自测\html\_t
 echo     完成
 
 echo.
-echo [2/5] 当前待提交文件：
+echo [2/6] 同步在线版（02_HTML版 → docs/index.html）...
+python "02_HTML版\发布到Pages.py"
+if errorlevel 1 echo     [跳过] python 不可用，可稍后手动运行该脚本
+
+echo.
+echo [3/6] 当前待提交文件：
 git status --short
 echo.
 echo     被忽略的本地文件（不会上传）：
@@ -31,11 +36,11 @@ set /p "MSG=请输入提交说明（回车用默认）："
 if "%MSG%"=="" set "MSG=chore: 更新项目文件"
 
 echo.
-echo [3/5] 暂存改动...
+echo [4/6] 暂存改动...
 git add -A
 
 echo.
-echo [4/5] 提交：%MSG%
+echo [5/6] 提交：%MSG%
 git commit -m "%MSG%"
 if errorlevel 1 (
     echo.
@@ -43,7 +48,7 @@ if errorlevel 1 (
 )
 
 echo.
-echo [5/5] 推送到 GitHub (origin/main)...
+echo [6/6] 推送到 GitHub (origin/main)...
 git push origin main
 if errorlevel 1 (
     echo.
