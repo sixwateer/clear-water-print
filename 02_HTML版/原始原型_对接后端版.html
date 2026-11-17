@@ -128,6 +128,24 @@ select.select:focus{border-color:var(--primary)}
 .auth-note svg{width:16px;height:16px;color:var(--warn);flex-shrink:0;margin-top:2px}
 .auth-note p{font-size:11.5px;color:#8A6A20;line-height:1.55}
 
+/* 修复框架（与小程序四框架对齐） */
+.framework-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:9px}
+.fw-item{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:10px 12px;border:1px solid var(--line);border-radius:10px;background:var(--surface);font-size:12.5px;color:var(--ink-2);cursor:pointer;transition:all .2s;text-align:left}
+.fw-item:hover{border-color:var(--primary);color:var(--primary)}
+.fw-item.active{background:rgba(15,158,142,.08);border-color:var(--primary);color:var(--primary-dark);font-weight:650}
+.fw-item span{font-size:10px;opacity:.7;font-weight:400}
+.fw-desc{margin-top:10px;font-size:11.5px;color:var(--ink-3);line-height:1.6;min-height:34px}
+.prompt-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:9px}
+.prompt-head .panel-label{margin-bottom:0}
+.prompt-example-btn{border:1px solid rgba(15,158,142,.35);background:var(--surface);color:var(--primary);font-size:11px;padding:3px 10px;border-radius:8px;cursor:pointer}
+.prompt-example-btn:hover{background:rgba(15,158,142,.08)}
+.prompt-input{width:100%;min-height:76px;padding:10px 11px;border:1px solid var(--line);border-radius:9px;font-family:inherit;font-size:12px;line-height:1.6;color:var(--ink);background:#FBFCFD;resize:vertical;outline:none}
+.prompt-input:focus{border-color:var(--primary)}
+.prompt-intent{margin-top:9px;padding:9px 11px;background:rgba(15,158,142,.07);border-left:3px solid var(--primary);border-radius:7px;font-size:11.5px;color:var(--primary-dark);line-height:1.6}
+.prompt-note{margin-top:7px;font-size:10.5px;color:var(--ink-3)}
+.result-meta{margin:0 22px 14px;padding:10px 13px;background:rgba(15,158,142,.06);border-radius:9px;font-size:11.5px;color:var(--ink-2);line-height:1.7}
+.result-meta b{color:var(--primary-dark)}
+
 /* 服务状态指示 */
 .server-status{display:flex;align-items:center;gap:6px;font-size:11.5px;padding:5px 10px;border-radius:20px;font-weight:500}
 .server-status .sdot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
@@ -165,7 +183,8 @@ footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
   .workspace{grid-template-columns:1fr}
   .hero h1{font-size:30px}
   .nav-links{display:none}
-  .flow{flex-wrap:wrap;gap:12px}
+  /* 窄屏步骤条改 2×2，避免 flex:1 把文字压成竖排 */
+  .flow{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}
   .flow-line{display:none}
 }
 </style>
@@ -269,6 +288,31 @@ footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
           <input type="range" class="range" id="strength" min="1" max="3" value="2">
         </div>
       </div>
+
+      <!-- 修复框架：与小程序四种框架保持一致 -->
+      <div class="panel-section">
+        <div class="panel-label">修复框架（点击切换）</div>
+        <div class="framework-grid">
+          <button class="fw-item active" data-key="smart" onclick="setFramework('smart')">智能扩散<span>推荐</span></button>
+          <button class="fw-item" data-key="texture" onclick="setFramework('texture')">纹理重建<span>衣物/木纹</span></button>
+          <button class="fw-item" data-key="average" onclick="setFramework('average')">快速填充<span>最快</span></button>
+          <button class="fw-item" data-key="prompt" onclick="setFramework('prompt')">提示词引导<span>按描述</span></button>
+        </div>
+        <div class="fw-desc" id="fwDesc">智能扩散：依据框外背景颜色向内推算，纯色/渐变背景近乎无痕</div>
+      </div>
+
+      <!-- 提示词 -->
+      <div class="panel-section">
+        <div class="prompt-head">
+          <div class="panel-label">提示词（可选）</div>
+          <button class="prompt-example-btn" onclick="useExamplePrompt()">用示例</button>
+        </div>
+        <textarea class="prompt-input" id="promptInput" maxlength="300"
+          placeholder="描述框住的目标和补全依据，例如：去掉框住的蓝色包，其余按背景和人物衣物补全"></textarea>
+        <div class="prompt-intent" id="promptIntent" style="display:none"></div>
+        <div class="prompt-note">仅对框选区域生效；框外像素不做任何改动。</div>
+      </div>
+
       <div class="panel-section">
         <div class="panel-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>合规确认</div>
         <label class="opt-row" style="cursor:pointer;gap:9px;justify-content:flex-start">
@@ -295,6 +339,7 @@ footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
       <div class="card-head">
         <div class="card-title">修复效果对比 <span style="font-size:12px;font-weight:400;color:var(--ink-3)">· 拖动中缝查看细节</span></div>
       </div>
+      <div class="result-meta" id="resultMeta"></div>
       <div class="card-body">
         <div class="compare-box" id="compareBox">
           <img id="imgAfter" alt="修复后">
@@ -307,7 +352,7 @@ footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
         </div>
         <div class="result-actions">
           <button class="btn-primary" style="width:auto;padding:12px 28px" onclick="downloadResult()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>下载修复结果</button>
-          <button class="btn-ghost" onclick="resetAll()" style="padding:12px 24px">处理下一张</button>
+          <button class="btn-ghost" onclick="nextImage()" style="padding:12px 24px">换下一张照片</button>
         </div>
       </div>
     </div>
@@ -328,14 +373,18 @@ const CONFIG = {
   apiVersion: 'v2',         // v2 = 双引擎融合流程；v1 = 旧单引擎接口
   autoBoxRatio: 0.22,       // 自动识别示意框占图比例
   strengthLabel: {1:'轻度',2:'中等',3:'强力'},
-  engineNames: {source:'引擎A·源头解析', alpha:'反向Alpha·无损', ai:'引擎B·AI修复', opencv:'兜底·OpenCV'}
+  engineNames: {source:'引擎A·源头解析', alpha:'反向Alpha·无损', ai:'引擎B·AI修复', opencv:'兜底·OpenCV'},
+  // 提示词示例：与小程序 utils/prompt.js 的 EXAMPLE 保持一致
+  promptExample: '我要去掉的是框住的蓝色包（包蓝蓝.png 中人物的包），其余区域依据背景或人物衣物进行修改。'
 };
 
 /* ============ 状态 ============ */
 const S = {
   img:null, file:null, scale:1, rects:[], action:null, handle:null, orig:null, start:null, cur:null,
   resultData:null, enhance:true, face:false, strength:2, detection:null,
-  serverOnline:false, defaultEngine:'opencv', engines:[]
+  serverOnline:false, defaultEngine:'opencv', engines:[],
+  // 与小程序对齐：修复框架 + 提示词
+  framework:'smart', promptText:'', promptInfo:null, lastFramework:null, lastIntent:''
 };
 
 const $ = id => document.getElementById(id);
@@ -368,6 +417,7 @@ function loadFile(file){
       dz.style.display='none';
       $('editor').classList.add('active');
       clearDetect();
+      $('resultMeta').innerHTML='';
       setFlow(2);
       draw();
       checkReady();updateReadout();
@@ -384,10 +434,12 @@ function loadFile(file){
    - 框内按下 = 移动；四角/四边手柄按下 = 缩放；空白处按下 = 重新画框
    - 选框坐标一律为画布显示坐标，提交后端时再换算回原图像素
    ================================================================================= */
-const HANDLE = 8;          // 手柄方块边长（显示像素）
-const HIT = 12;            // 命中半径
+const HANDLE = 8;          // 手柄方块边长（显示像素，小屏按 pxK 放大）
+const HIT = 12;            // 命中半径（同上）
 const MIN_BOX = 8;         // 选框最小尺寸
 const HANDLES = ['nw','n','ne','e','se','s','sw','w'];
+// 画布像素 ÷ CSS 像素：手机等小屏上画布被缩小显示，手柄与命中区要按此放大
+function pxK(){const b=stage.getBoundingClientRect();return b.width>0?stage.width/b.width:1}
 
 function draw(){
   ctx.clearRect(0,0,stage.width,stage.height);
@@ -397,11 +449,12 @@ function draw(){
   if(r){
     drawBox(r);
     // 选中态手柄：单击选框后显示（这里始终显示，便于精确微调）
+    const k=pxK(),hs=Math.max(HANDLE,Math.round(11*k)),lw=Math.max(2,Math.round(1.6*k));
     for(const h of HANDLES){
       const p=handlePos(r,h);
-      ctx.fillStyle='#fff';ctx.strokeStyle='#0F9E8E';ctx.lineWidth=2;
-      ctx.fillRect(p.x-HANDLE/2,p.y-HANDLE/2,HANDLE,HANDLE);
-      ctx.strokeRect(p.x-HANDLE/2,p.y-HANDLE/2,HANDLE,HANDLE);
+      ctx.fillStyle='#fff';ctx.strokeStyle='#0F9E8E';ctx.lineWidth=lw;
+      ctx.fillRect(p.x-hs/2,p.y-hs/2,hs,hs);
+      ctx.strokeRect(p.x-hs/2,p.y-hs/2,hs,hs);
     }
   }
   // 正在拖出的新框
@@ -434,7 +487,11 @@ function handlePos(r,h){
           se:{x:x+w,y:y+ht},s:{x:cx,y:y+ht},sw:{x:x,y:y+ht},w:{x:x,y:cy}})[h];
 }
 function hitHandle(p,r){
-  for(const h of HANDLES){const q=handlePos(r,h);if(Math.abs(p.x-q.x)<=HIT&&Math.abs(p.y-q.y)<=HIT)return h}
+  const k=pxK();
+  // 命中区按屏幕放大到约 44 CSS px；小框时收紧到短边 1/3，避免手柄互相抢
+  const lim=Math.max(MIN_BOX,Math.min(r.w,r.h)/3);
+  const hit=Math.min(Math.max(HIT,Math.round(22*k)),lim);
+  for(const h of HANDLES){const q=handlePos(r,h);if(Math.abs(p.x-q.x)<=hit&&Math.abs(p.y-q.y)<=hit)return h}
   return null;
 }
 function inBox(p,r){return p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h}
@@ -543,6 +600,71 @@ function updateEngineGuide(){
 }
 $('engine').onchange=()=>{updateEngineGuide();onBoxReady()};
 updateEngineGuide();
+/* ============ 修复框架 + 提示词（与小程序 utils/prompt.js 规则一致）============ */
+const FRAMEWORKS={
+  smart:{label:'智能扩散',desc:'智能扩散：依据框外背景颜色向内推算，纯色/渐变背景近乎无痕'},
+  texture:{label:'纹理重建',desc:'纹理重建：扩散重建后回注邻近衣物/木纹高频，纹理背景不糊成平色'},
+  average:{label:'快速填充',desc:'快速填充：取边缘平均色平铺，适合面积很小、背景单一的目标'},
+  prompt:{label:'提示词引导',desc:'提示词引导：按你输入的描述自动选择上面三种之一；留空时用智能扩散'}
+};
+// 优先级与小程序一致：纹理 > 渐变/纯色 > 背景 > 快速/平均
+const PROMPT_RULES=[
+  {re:/纹理|衣物|衣服|衣料|布料|条纹|木纹|草地|毛发|织物|褶皱/,fill:'衣物/背景纹理',framework:'texture'},
+  {re:/渐变|纯色|单色|天空|白墙|干净背景/,fill:'周围背景渐变',framework:'smart'},
+  {re:/背景|墙面|地面|周围/,fill:'周围背景',framework:'smart'},
+  {re:/快速|平均|取色|小面积|纯色块/,fill:'边缘平均色',framework:'average'}
+];
+function parsePrompt(text){
+  const s=String(text||'').trim();
+  const out={raw:s,target:'',fill:'',framework:'',intent:''};
+  if(!s)return out;
+  const patterns=[
+    /(?:框住|框选|圈住|选中)的?([^，,。；;（）()]{1,24})/,
+    /(?:要去掉|要去除|要擦除|去掉|去除)的?([^，,。；;（）()]{1,24})/
+  ];
+  for(const p of patterns){const m=s.match(p);if(m){
+    out.target=m[1].replace(/^(?:是|的|那个|这个)+/,'').replace(/^(?:框住|框选|圈住|选中)的?/,'').trim();break;
+  }}
+  for(const r of PROMPT_RULES){if(r.re.test(s)){out.fill=r.fill;out.framework=r.framework;break}}
+  const parts=[];
+  if(out.target)parts.push('目标：'+out.target);
+  if(out.fill)parts.push('按'+out.fill+'补全');
+  if(out.framework)parts.push('推荐「'+FRAMEWORKS[out.framework].label+'」');
+  out.intent=parts.length?parts.join(' · '):'已记录提示词，未识别到明确目标或补全依据';
+  return out;
+}
+function resolveFramework(){
+  const info=parsePrompt(S.promptText);
+  let chosen=S.framework;
+  if(!FRAMEWORKS[chosen])chosen='smart';
+  const actual=chosen==='prompt'?(info.framework||'smart'):chosen;
+  return{actual,info};
+}
+function setFramework(key){
+  S.framework=key;
+  document.querySelectorAll('.fw-item').forEach(b=>b.classList.toggle('active',b.dataset.key===key));
+  $('fwDesc').textContent=FRAMEWORKS[key].desc;
+  if(key==='prompt'&&!S.promptText.trim())toast('可填写提示词，留空则用智能扩散');
+}
+function onPromptInput(e){
+  S.promptText=(e.target.value||'').slice(0,300);
+  S.promptInfo=parsePrompt(S.promptText);
+  const el=$('promptIntent');
+  el.textContent=S.promptInfo.intent;
+  el.style.display=S.promptText.trim()?'block':'none';
+}
+function useExamplePrompt(){
+  S.promptText=CONFIG.promptExample;
+  $('promptInput').value=S.promptText;
+  onPromptInput({target:{value:S.promptText}});
+  toast('已填入示例提示词');
+}
+// 换下一张：只换图片，保留框架、提示词、引擎与授权设置
+function nextImage(){
+  $('fileInput').value='';  // 允许重复选择同一张
+  $('fileInput').click();
+}
+
 function clearDetect(){S.detection=null;const b=$('detectBadge');b.style.display='none';b.textContent=''}
 function bindSwitch(id,key){$(id).onclick=()=>{$(id).classList.toggle('on');S[key]=$(id).classList.contains('on')}}
 bindSwitch('swEnhance','enhance');bindSwitch('swFace','face');
@@ -562,13 +684,15 @@ $('btnProcess').onclick=async()=>{
 
   try{
     const result=await callBackend();
-    showResult(result.url);
+    showResult(result.url,result);
     const engName=CONFIG.engineNames[result.engine]||result.engine;
-    const losslessTag=result.lossless?' · 无损恢复':'';
-    toast(`修复完成 · ${engName}${losslessTag} · ${result.elapsed}ms`);
+    const fwName=(FRAMEWORKS[result.framework]||{}).label||result.framework;
+    toast(`修复完成 · ${fwName} · ${engName} · ${result.elapsed}ms`);
   }catch(err){
     console.warn('后端调用失败，降级为本地演示:',err);
-    showResult(localFallback());
+    const fb=resolveFramework();
+    // 本地降级也只填框内，保持一致的处理约束
+    showResult(localFallback(),{framework:fb.actual,intent:fb.info.intent,strict:'true'});
     toast('后端未连接，已用本地演示模式（启动后端可获得真实修复）');
   }finally{
     $('btnText').textContent='重新修复';
@@ -602,6 +726,11 @@ async function callBackend(){
   fd.append('face',String(S.face));
   fd.append('authorized',String(auth));
   fd.append('prefer_engine',prefer);
+  // 框架/提示词/严格框内：与小程序端行为一致
+  const resolved=resolveFramework();
+  fd.append('framework',S.framework);
+  fd.append('prompt',S.promptText);
+  fd.append('strict_box','true');
 
   const endpoint=CONFIG.apiVersion==='v2'?'/api/v2/process':'/api/inpaint';
   const resp=await fetch(`${CONFIG.apiBase}${endpoint}`,{method:'POST',body:fd});
@@ -615,7 +744,10 @@ async function callBackend(){
     url:URL.createObjectURL(blob),
     engine:resp.headers.get('X-Engine-Used')||resp.headers.get('X-Engine')||'ai',
     lossless:(resp.headers.get('X-Lossless')||'false')==='true',
-    elapsed:resp.headers.get('X-Elapsed-Ms')||'?'
+    elapsed:resp.headers.get('X-Elapsed-Ms')||'?',
+    framework:resp.headers.get('X-Framework-Used')||resolved.actual,
+    strict:resp.headers.get('X-Strict-Box'),
+    intent:(()=>{try{return JSON.parse(resp.headers.get('X-Prompt-Intent')||'""')||resolved.info.intent}catch{return resolved.info.intent}})()
   };
 }
 
@@ -636,10 +768,17 @@ function pickAvg(d){
   for(let i=0;i<d.length;i+=40){r+=d[i];g+=d[i+1];b+=d[i+2];n++}
   return `rgb(${Math.round(r/n)},${Math.round(g/n)},${Math.round(b/n)})`;
 }
-function showResult(url){
+function showResult(url,meta){
   S.resultData=url;
   $('imgAfter').src=url;
   $('imgBefore').src=baseImage.src;
+  const m=meta||{};
+  const fw=(FRAMEWORKS[m.framework]||{}).label||S.framework;
+  const strict=m.strict===true||m.strict==='true';
+  const intent=m.intent||'';
+  const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+  $('resultMeta').innerHTML=`<b>修复框架：</b>${esc(fw)}　<b>处理约束：</b>${strict?'仅框内，框外不变':'按引擎默认'}`+
+    (intent?`<br><b>提示词意图：</b>${esc(intent)}`:'');
 }
 
 /* ============ 对比滑杆 ============ */
@@ -705,6 +844,7 @@ function resetAll(){
   $('editor').classList.remove('active');$('compare').classList.remove('active');
   dz.style.display='flex';$('fileInput').value='';$('fileInfo').textContent='尚未选择文件';
   clearDetect();updateReadout();
+  $('resultMeta').innerHTML='';
   setFlow(1);checkReady();window.scrollTo({top:0,behavior:'smooth'});
 }
 let toastTimer;

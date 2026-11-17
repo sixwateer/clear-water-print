@@ -12,11 +12,17 @@
 import io
 import json
 import math
+import re
 import time
 
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse, Response
 from PIL import Image
+
+try:
+    import numpy as np
+except ImportError:  # 无 numpy 时退化为 PIL 逐像素合成
+    np = None
 
 from pipeline.context import ProcessContext
 from pipeline.orchestrator import OrchestratorConfig
@@ -45,6 +51,102 @@ def _encode_png(image: Image.Image) -> bytes:
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     return buf.getvalue()
+
+
+# ============================================================
+# 提示词意图解析：规则与小程序 utils/prompt.js 保持一致
+# ============================================================
+PROMPT_RULES = [
+    (re.compile(r"纹理|衣物|衣服|衣料|布料|条纹|木纹|草地|毛发|织物|褶皱"), "衣物/背景纹理", "texture"),
+    (re.compile(r"渐变|纯色|单色|天空|白墙|干净背景"), "周围背景渐变", "smart"),
+    (re.compile(r"背景|墙面|地面|周围"), "周围背景", "smart"),
+    (re.compile(r"快速|平均|取色|小面积|纯色块"), "边缘平均色", "average"),
+]
+FRAMEWORK_LABEL = {"smart": "智能扩散", "texture": "纹理重建", "average": "快速填充"}
+_PROMPT_TARGET_PATTERNS = [
+    re.compile(r"(?:框住|框选|圈住|选中)的?([^，,。；;（）()]{1,24})"),
+    re.compile(r"(?:要去掉|要去除|要擦除|去掉|去除)的?([^，,。；;（）()]{1,24})"),
+]
+
+
+def parse_prompt(text: str) -> dict:
+    """本地解析提示词，输出 {raw,target,fill,framework,intent}。无网络请求。"""
+    s = (text or "").strip()
+    out = {"raw": s, "target": "", "fill": "", "framework": "", "intent": ""}
+    if not s:
+        return out
+    for pat in _PROMPT_TARGET_PATTERNS:
+        m = pat.search(s)
+        if m:
+            t = re.sub(r"^(?:是|的|那个|这个)+", "", m.group(1))
+            t = re.sub(r"^(?:框住|框选|圈住|选中)的?", "", t)
+            out["target"] = t.strip()
+            break
+    for rx, fill, framework in PROMPT_RULES:
+        if rx.search(s):
+            out["fill"], out["framework"] = fill, framework
+            break
+    parts = []
+    if out["target"]:
+        parts.append("目标：" + out["target"])
+    if out["fill"]:
+        parts.append("按" + out["fill"] + "补全")
+    if out["framework"]:
+        parts.append("推荐「" + FRAMEWORK_LABEL[out["framework"]] + "」")
+    out["intent"] = " · ".join(parts) if parts else "已记录提示词，未识别到明确目标或补全依据"
+    return out
+
+
+def resolve_framework(framework: str, prompt: str) -> tuple[str, dict]:
+    """提示词框架按解析结果选实际算法；其余框架直接用用户所选。非法值回退 smart。"""
+    info = parse_prompt(prompt)
+    chosen = (framework or "smart").strip()
+    if chosen not in FRAMEWORK_LABEL and chosen != "prompt":
+        chosen = "smart"
+    actual = info["framework"] if chosen == "prompt" and info["framework"] else (
+        "smart" if chosen == "prompt" else chosen
+    )
+    return actual, info
+
+
+def compose_strict(original: Image.Image, repaired: Image.Image, rects: list[dict]) -> Image.Image:
+    """严格框内合成：只把 rect 范围内的修复像素写回原图，框外逐像素不变。
+
+    引擎可能输出整图（如源头解析），也可能只改了框内；统一在这里收敛，
+    保证「仅对框选目标执行去除」。source_url 场景没有原始图对象时跳过合成。
+    """
+    if original is None or repaired is None or not rects:
+        return repaired
+    W, H = original.size
+    if repaired.size != (W, H):
+        return repaired
+    orig = original.convert("RGB")
+    rep = repaired.convert("RGB")
+    boxes = []
+    for r in rects:
+        x1, y1 = max(0, int(r["x"])), max(0, int(r["y"]))
+        x2, y2 = min(W, int(r["x"] + r["w"])), min(H, int(r["y"] + r["h"]))
+        if x2 > x1 and y2 > y1:
+            boxes.append((x1, y1, x2, y2))
+    if not boxes:
+        return repaired
+
+    if np is not None:
+        arr = np.asarray(orig).copy()
+        src = np.asarray(rep)
+        mask = np.zeros((H, W), dtype=bool)
+        for x1, y1, x2, y2 in boxes:
+            mask[y1:y2, x1:x2] = True
+        arr[mask] = src[mask]
+        return Image.fromarray(arr, "RGB")
+
+    out = orig.copy()  # 无 numpy 时的兜底
+    po, pr = out.load(), rep.load()
+    for x1, y1, x2, y2 in boxes:
+        for yy in range(y1, y2):
+            for xx in range(x1, x2):
+                po[xx, yy] = pr[xx, yy]
+    return out
 
 
 def _parse_rects(rects: str, *, allow_empty: bool = False) -> tuple[list[dict] | None, str | None]:
@@ -235,6 +337,9 @@ async def process_fusion(
     authorized: bool = Form(False, description="是否确认有权处理"),
     prefer_engine: str = Form("auto", description="auto | source | alpha | ai | opencv"),
     strict_quality: bool = Form(False),
+    framework: str = Form("smart", description="smart | texture | average | prompt"),
+    prompt: str = Form("", description="提示词：描述框住的目标与补全依据"),
+    strict_box: bool = Form(True, description="仅把框内修复像素写回原图，框外保持不变"),
 ):
     """双引擎融合处理：返回修复图片二进制 + 元数据响应头。"""
     ctx, err = await _build_context(
@@ -271,6 +376,23 @@ async def process_fusion(
             {"task_id": result.task_id, **result.to_dict()}, status_code=422
         )
 
+    framework_used, prompt_info = resolve_framework(framework, prompt)
+    strict_applied = bool(strict_box and ctx.image is not None and ctx.rects)
+    if strict_applied:
+        result.image = compose_strict(ctx.image, result.image, ctx.rects)
+
+    _remember_task(ctx.task_id, {
+        "status": result.status,
+        "engine_used": result.engine_used,
+        "lossless": result.lossless,
+        "elapsed_ms": result.elapsed_ms,
+        "trace": result.trace,
+        "error": result.error,
+        "framework": framework_used,
+        "prompt_intent": prompt_info["intent"],
+        "strict_box": strict_applied,
+    })
+
     return Response(
         content=_encode_png(result.image),
         media_type="image/png",
@@ -280,8 +402,12 @@ async def process_fusion(
             "X-Lossless": str(result.lossless).lower(),
             "X-Elapsed-Ms": str(result.elapsed_ms),
             "X-Trace": json.dumps(result.trace, ensure_ascii=True),  # 头信息须 latin-1 可编码
+            "X-Framework-Used": framework_used,
+            "X-Prompt-Intent": json.dumps(prompt_info["intent"], ensure_ascii=True),
+            "X-Strict-Box": str(strict_applied).lower(),
             "Access-Control-Expose-Headers": (
-                "X-Task-Id,X-Engine-Used,X-Lossless,X-Elapsed-Ms,X-Trace"
+                "X-Task-Id,X-Engine-Used,X-Lossless,X-Elapsed-Ms,X-Trace,"
+                "X-Framework-Used,X-Prompt-Intent,X-Strict-Box"
             ),
         },
     )
@@ -300,6 +426,9 @@ async def process_fusion_json(
     authorized: bool = Form(False),
     prefer_engine: str = Form("auto"),
     strict_quality: bool = Form(False),
+    framework: str = Form("smart"),
+    prompt: str = Form(""),
+    strict_box: bool = Form(True),
 ):
     """融合处理：仅返回 JSON 元数据（不返回图片），便于测试决策与回退逻辑。"""
     ctx, err = await _build_context(
@@ -320,7 +449,15 @@ async def process_fusion_json(
              "error": f"处理流程异常: {type(e).__name__}: {e}"}, status_code=500
         )
     _remember_task(ctx.task_id, {"status": result.status, "error": result.error})
-    return result.to_dict()
+    framework_used, prompt_info = resolve_framework(framework, prompt)
+    strict_applied = bool(strict_box and ctx.image is not None and ctx.rects)
+    if strict_applied and result.image is not None:
+        result.image = compose_strict(ctx.image, result.image, ctx.rects)
+    payload = result.to_dict()
+    payload["framework"] = framework_used
+    payload["prompt_intent"] = prompt_info["intent"]
+    payload["strict_box"] = strict_applied
+    return payload
 
 
 @router.get("/task/{task_id}")

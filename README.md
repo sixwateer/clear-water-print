@@ -122,6 +122,8 @@ python server.py
 | 小程序版 | `node tests/test_new_features.js`（框架/提示词/手势/严格框内） | **9/9** 通过 |
 | 后端核心流程 | `python tests/test_orchestrator.py` | **11/11** 通过 |
 | 后端边界与异常 | `python tests/test_api_robustness.py` | **19/19** 通过 |
+| 后端框架与严格框内 | `python tests/test_framework_strict.py`（跨端一致性 + 逐像素） | **13/13** 通过 |
+| HTML 后端版页面 | `node 08_自测/html/test_backend_page.js`（真实脚本沙箱） | **8/8** 通过 |
 
 关键性能与质量指标：超大框 1582ms → **40ms**（多尺度扩散）；贴边场景边界色差 44.9 → **6.9**（镜像采样）；水印残影率修复后降至 **0**。
 

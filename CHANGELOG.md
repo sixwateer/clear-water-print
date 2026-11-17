@@ -4,6 +4,43 @@
 
 ---
 
+## v1.5 · 2026-11-17 — 后端版对齐小程序：框架 / 提示词 / 严格框内
+
+### 后端 API（`05_后端引擎/api_v2.py`）
+
+- `/api/v2/process` 与 `/process/json` 新增三个参数：
+  - `framework`：`smart` / `texture` / `average` / `prompt`，非法值回退 `smart`；
+  - `prompt`：描述框住的目标与补全依据；
+  - `strict_box`：默认 `true`，只把框内修复像素写回原图。
+- `parse_prompt()` / `resolve_framework()` 的规则与小程序 `utils/prompt.js` **一致**：
+  `framework=prompt` 且提示词含「衣物/纹理/木纹」→ 实际走 `texture`；含「渐变/纯色/背景」→ `smart`；
+  空提示词回退 `smart`。
+- `compose_strict()`：按原框把修复结果贴回原图，**框外逐像素不变**。
+  只有 `source_url` 而无原图对象时跳过（`X-Strict-Box: false`）。
+- 新增响应头：`X-Framework-Used`、`X-Prompt-Intent`（JSON 转义）、`X-Strict-Box`，
+  均已加入 `Access-Control-Expose-Headers`。
+
+### 后端版页面（`02_HTML版/原始原型_对接后端版.html`）
+
+- 右侧面板新增「修复框架」2×2 四按钮与「提示词」输入区（含「用示例」按钮、实时意图摘要）。
+- 画布手柄按“画布/CSS”比例放大，手机上不再点不中；窄屏步骤条改 2×2。
+- `FormData` 携带 `framework/prompt/strict_box`，结果区显示本次框架、约束状态与意图摘要。
+- 「换下一张照片」重新选图但保留框架、提示词、引擎与授权设置。
+- 后端离线时本地降级也只填框内，约束一致。
+
+### 验证
+
+- 后端新增 `tests/test_framework_strict.py` **13/13**：含跨端一致性（从小程序 JS 抽示例交给
+  Python 解析）、严格框内逐像素比对、贴边/多框/尺寸不一致边界；原有 11 + 19 项回归全过。
+- 后端版页面新增 `08_自测/html/test_backend_page.js` **8/8**：沙箱加载真实页面脚本，
+  验证框架解析、提示词、换图保留设置、后端参数传递与响应头读取。
+- 真实端到端：启动服务后用木纹图调用 `/api/v2/process`，`framework=prompt` + 示例提示词
+  返回 `X-Framework-Used: texture`、`X-Strict-Box: true`；逐像素比对确认
+  **框外完全一致、框内 26400/26400 像素被修复**。空提示词回退 `smart`、贴边框、
+  非法 `framework` 回退均已实测。桌面 1280 与手机 390 视口截图无溢出。
+
+---
+
 ## v1.4 · 2026-11-17 — 小程序：HTML 式交互、框架切换与提示词
 
 ### 交互向 HTML 看齐

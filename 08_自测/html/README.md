@@ -11,6 +11,7 @@ python prepare.py     # 把真实测试图转成 _tmp/wood.bin（8.3MB，临时�
 node run.js           # 18 项断言（6 场景 × 3 模式），有失败时退出码为 1
 python compare.py     # 生成 对比图.png（前 3 个场景，上原图下修复后）
 python make_e2e.py    # 生成浏览器端到端测试页 _tmp/e2e.html
+node test_backend_page.js   # 后端对接版：框架/提示词/换图/参数传递 8 项
 ```
 
 浏览器端到端（验证真实页面逻辑：识别/框选/三模式/三档/整图框）：
@@ -27,6 +28,11 @@ python make_e2e.py    # 生成浏览器端到端测试页 _tmp/e2e.html
 结果在 `<title>` 里：`E2E|OK 贴边识别(...)|OK 自动框(...)|...|DONE`。
 
 依赖：Node ≥ 16；Python 3 + Pillow + NumPy（prepare/compare/make_e2e 需要）。
+
+`test_backend_page.js` 测的是**后端对接版**页面：从 HTML 抽取 `<script>` 在 Node 沙箱里
+用最小 DOM mock 执行，验证四框架切换、示例提示词解析（并与小程序 `utils/prompt.js`
+的示例做跨端一致性比对）、换图保留设置、以及 `FormData` 是否带上
+`framework/prompt/strict_box` 并正确读取新响应头。
 
 ## 测的是什么
 
