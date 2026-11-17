@@ -21,7 +21,7 @@ function check(name, fn) { tests.push([name, fn]); }
 const html = fs.readFileSync(HTML, 'utf8');
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(m, '未找到页面脚本');
-const code = m[1] + '\n;globalThis.__S=S;globalThis.__FW=FRAMEWORKS;globalThis.__CFG=CONFIG;';
+const code = m[1] + '\n;globalThis.__S=S;globalThis.__FW=FRAMEWORKS;globalThis.__CFG=CONFIG;globalThis.__setBase=function(v){baseImage=v};';
 // 语法检查：构造时即抛错
 new Function(code);
 
@@ -147,6 +147,52 @@ check('后端交互：FormData 携带 framework/prompt/strict_box', async functi
   assert.strictEqual(result.framework, 'texture');
   assert.strictEqual(result.strict, 'true');
   assert.ok(result.intent.indexOf('蓝色包') >= 0);
+});
+
+check('多框：最多 3 个，超出替换当前框', function () {
+  S.rects = []; S.activeBox = 0; S.tool = 'rect';
+  for (let i = 0; i < 5; i++) ctx.commitBox({ x: i * 10, y: 10, w: 20, h: 20 });
+  assert.strictEqual(S.rects.length, 3);
+});
+
+check('线条框选：轨迹外接矩形标记为自定义框', function () {
+  S.rects = []; S.activeBox = 0; S.tool = 'line';
+  S.action = 'line';
+  S.linePts = [{ x: 10, y: 10 }, { x: 30, y: 20 }, { x: 50, y: 40 }];
+  ctx.up(null);
+  assert.strictEqual(S.rects.length, 1);
+  assert.strictEqual(S.rects[0].kind, 'line');
+  assert.strictEqual(S.rects[0].w, 40);
+  assert.strictEqual(S.rects[0].h, 30);
+});
+
+check('删除当前框：只删一个而非清空', function () {
+  S.rects = [{ x: 1, y: 1, w: 2, h: 2 }, { x: 5, y: 5, w: 2, h: 2 }];
+  S.activeBox = 1;
+  els.toolDel.onclick();
+  assert.strictEqual(S.rects.length, 1);
+  assert.strictEqual(S.rects[0].x, 1);
+});
+
+check('后端交互：三个框全部提交且只含 x/y/w/h', async function () {
+  S.rects = [
+    { x: 1, y: 2, w: 3, h: 4, kind: 'line' },
+    { x: 5, y: 6, w: 7, h: 8 },
+    { x: 9, y: 10, w: 11, h: 12 }
+  ];
+  S.serverOnline = true; S.file = {}; S.scale = 1; S.img = {};
+  await ctx.callBackend();
+  const sent = JSON.parse(captured.rects);
+  assert.strictEqual(sent.length, 3);
+  assert.deepStrictEqual(Object.keys(sent[0]).sort(), ['h', 'w', 'x', 'y']);
+});
+
+check('结果展示：对比线归位到中央（回归手柄贴左）', function () {
+  ctx.__setBase({ src: 'data:image/png;base64,AA' });
+  els.handle.style.left = '14%';
+  ctx.showResult('blob:mock', { framework: 'texture', strict: 'true', intent: '测试' });
+  assert.strictEqual(els.handle.style.left, '50%');
+  assert.ok(String(els.imgBefore.style.clipPath).indexOf('50%') >= 0);
 });
 
 (async function () {

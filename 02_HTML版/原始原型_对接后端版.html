@@ -254,11 +254,13 @@ footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
           </div>
           <div class="toolbar">
             <button class="tool active" id="toolRect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>矩形框选</button>
-            <button class="tool" id="toolClear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除标记</button>
+            <button class="tool" id="toolLine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17l5-8 5 5 4-7 4 4"/></svg>线条框选</button>
             <button class="tool" id="toolAuto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>自动定位</button>
-            <span class="tool-hint">拖拽框选 · 可拖动/缩放微调 · 仅保留一个选框</span>
+            <button class="tool" id="toolDel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>删当前框</button>
+            <button class="tool" id="toolClear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除标记</button>
+            <span class="tool-hint">最多三个框 · 拖动/手柄微调 · 线条框=自定义</span>
           </div>
-          <div class="box-readout" id="boxReadout">在图片上拖拽框选；拖动选框可移动，拉动四角/四边手柄可缩放</div>
+          <div class="box-readout" id="boxReadout">拖拽画矩形框，或选「线条框选」沿目标画线；最多 3 个框</div>
         </div>
       </div>
     </div>
@@ -384,8 +386,11 @@ const S = {
   resultData:null, enhance:true, face:false, strength:2, detection:null,
   serverOnline:false, defaultEngine:'opencv', engines:[],
   // 与小程序对齐：修复框架 + 提示词
-  framework:'smart', promptText:'', promptInfo:null, lastFramework:null, lastIntent:''
+  framework:'smart', promptText:'', promptInfo:null, lastFramework:null, lastIntent:'',
+  // 多框交互：最多 3 个框；tool='line' 时画线取轨迹外接矩形作为自定义框
+  tool:'rect', activeBox:0, linePts:[]
 };
+const MAX_BOXES = 3;
 
 const $ = id => document.getElementById(id);
 const stage=$('stage'), ctx=stage.getContext('2d');
@@ -412,7 +417,7 @@ function loadFile(file){
       stage.width=Math.round(img.width*S.scale);
       stage.height=Math.round(img.height*S.scale);
       baseImage=img;
-      S.rects=[];S.action=null;S.orig=null;S.detection=null;
+      S.rects=[];S.action=null;S.orig=null;S.detection=null;S.activeBox=0;S.linePts=[];
       $('fileInfo').textContent=`${file.name} · ${img.width}×${img.height}`;
       dz.style.display='none';
       $('editor').classList.add('active');
@@ -428,10 +433,10 @@ function loadFile(file){
   reader.readAsDataURL(file);
 }
 
-/* ============ 画布绘制与选框交互（单选框 + 拖拽移动 + 8向缩放手柄）============
+/* ============ 画布绘制与选框交互（最多 3 框 + 矩形/线条框选 + 8向缩放）============
    交互约定（与普通版保持一致）：
-   - 全程只保留 1 个选框：新拖框 / 自动定位都会替换旧框
-   - 框内按下 = 移动；四角/四边手柄按下 = 缩放；空白处按下 = 重新画框
+   - 最多 3 个框：矩形拖拽新增；线条框选取轨迹外接矩形作为「自定义框」
+   - 框内按下 = 移动；四角/四边手柄按下 = 缩放；空白处按下 = 新增框；满 3 个替换当前框
    - 选框坐标一律为画布显示坐标，提交后端时再换算回原图像素
    ================================================================================= */
 const HANDLE = 8;          // 手柄方块边长（显示像素，小屏按 pxK 放大）
@@ -445,29 +450,44 @@ function draw(){
   ctx.clearRect(0,0,stage.width,stage.height);
   if(!baseImage)return;
   ctx.drawImage(baseImage,0,0,stage.width,stage.height);
-  const r=S.rects[0];
-  if(r){
-    drawBox(r);
-    // 选中态手柄：单击选框后显示（这里始终显示，便于精确微调）
-    const k=pxK(),hs=Math.max(HANDLE,Math.round(11*k)),lw=Math.max(2,Math.round(1.6*k));
+  const k=pxK(),hs=Math.max(HANDLE,Math.round(11*k)),lw=Math.max(2,Math.round(1.6*k));
+  S.rects.forEach((r,i)=>{
+    drawBox(r,undefined,undefined,(r.kind==='line'?'自定义':'框')+(i+1));
+    if(i!==S.activeBox)return;
     for(const h of HANDLES){
       const p=handlePos(r,h);
       ctx.fillStyle='#fff';ctx.strokeStyle='#0F9E8E';ctx.lineWidth=lw;
       ctx.fillRect(p.x-hs/2,p.y-hs/2,hs,hs);
       ctx.strokeRect(p.x-hs/2,p.y-hs/2,hs,hs);
     }
-  }
-  // 正在拖出的新框
+  });
   if(S.action==='draw'&&S.cur){
     const r=normRect(S.start,S.cur);
     drawBox(r,'rgba(91,110,225,1)','rgba(91,110,225,.16)');
   }
+  if(S.action==='line'&&S.linePts.length>1){
+    ctx.save();ctx.strokeStyle='#5B6EE1';ctx.lineWidth=Math.max(2,lw);
+    ctx.setLineDash([5,3]);ctx.beginPath();ctx.moveTo(S.linePts[0].x,S.linePts[0].y);
+    for(let i=1;i<S.linePts.length;i++)ctx.lineTo(S.linePts[i].x,S.linePts[i].y);
+    ctx.stroke();ctx.restore();
+  }
 }
-function drawBox(r,stroke='rgba(15,158,142,.95)',fill='rgba(15,158,142,.12)'){
-  ctx.strokeStyle=stroke;ctx.lineWidth=2;ctx.setLineDash([6,4]);
+function drawBox(r,stroke,fill,label){
+  const isLine=r.kind==='line';
+  ctx.strokeStyle=stroke||(isLine?'rgba(91,110,225,.95)':'rgba(15,158,142,.95)');
+  ctx.lineWidth=2;ctx.setLineDash([6,4]);
   ctx.strokeRect(r.x,r.y,r.w,r.h);
-  ctx.fillStyle=fill;ctx.fillRect(r.x,r.y,r.w,r.h);
+  ctx.fillStyle=fill||(isLine?'rgba(91,110,225,.13)':'rgba(15,158,142,.12)');
+  ctx.fillRect(r.x,r.y,r.w,r.h);
   ctx.setLineDash([]);
+  if(!label)return;
+  ctx.save();ctx.font='11px "Microsoft YaHei",sans-serif';
+  const tw=ctx.measureText(label).width;
+  const lx=clamp(r.x+4,2,stage.width-tw-8);
+  const ly=r.y-5<12?r.y+15:r.y-5;
+  ctx.fillStyle=isLine?'#5B6EE1':'#0F9E8E';
+  ctx.fillRect(lx-3,ly-11,tw+6,15);
+  ctx.fillStyle='#fff';ctx.fillText(label,lx,ly);ctx.restore();
 }
 function normRect(a,b){return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(b.x-a.x),h:Math.abs(b.y-a.y)}}
 function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
@@ -498,33 +518,51 @@ function inBox(p,r){return p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h}
 function setCursor(c){stage.style.cursor=c}
 function updateReadout(){
   const el=$('boxReadout');if(!el)return;
-  if(!S.rects.length){el.textContent='在图片上拖拽框选；拖动选框可移动，拉动四角/四边手柄可缩放';return}
-  const r=S.rects[0],ox=Math.round(r.x/S.scale),oy=Math.round(r.y/S.scale),ow=Math.round(r.w/S.scale),oh=Math.round(r.h/S.scale);
-  el.textContent=`选框（原图像素）：x ${ox} · y ${oy} · 宽 ${ow} × 高 ${oh}　|　拖动内部移动，拖动手柄缩放`;
+  if(!S.rects.length){el.textContent=`拖拽画矩形框，或选「线条框选」沿目标画线；最多 ${MAX_BOXES} 个框`;return}
+  const parts=S.rects.map((r,i)=>{
+    const ox=Math.round(r.x/S.scale),oy=Math.round(r.y/S.scale);
+    const ow=Math.round(r.w/S.scale),oh=Math.round(r.h/S.scale);
+    return `${r.kind==='line'?'自定义':'框'}${i+1}(${ox},${oy} ${ow}×${oh})`;
+  });
+  el.textContent=`${parts.join('　')}　|　共 ${S.rects.length}/${MAX_BOXES} 框 · 拖内部移动 · 手柄缩放`;
+}
+// 新增框：未满 3 个则追加，已满则替换当前框
+function commitBox(r){
+  if(S.rects.length<MAX_BOXES){S.rects.push(r);S.activeBox=S.rects.length-1}
+  else{S.rects[S.activeBox]=r}
 }
 function down(e){
   if(!S.img)return;e.preventDefault();
-  const p=pos(e),r=S.rects[0];
-  if(r){
-    const h=hitHandle(p,r);
-    if(h){S.action='resize';S.handle=h;S.orig={...r};S.start=p;return}
-    if(inBox(p,r)){S.action='move';S.orig={...r};S.start=p;setCursor('move');return}
+  const p=pos(e);
+  for(let i=S.rects.length-1;i>=0;i--){
+    const r=S.rects[i],h=hitHandle(p,r);
+    if(h){S.action='resize';S.activeBox=i;S.handle=h;S.orig={...r};S.start=p;draw();return}
   }
-  // 空白：开始新框（替换旧框，保证只有一个）
-  S.action='draw';S.start=p;S.cur=p;S.rects=[];draw();
+  for(let i=S.rects.length-1;i>=0;i--){
+    if(inBox(p,S.rects[i])){S.action='move';S.activeBox=i;S.orig={...S.rects[i]};S.start=p;setCursor('move');draw();return}
+  }
+  if(S.tool==='line'){S.action='line';S.linePts=[p];S.cur=p;return}
+  S.action='draw';S.start=p;S.cur=p;
 }
 function move(e){
   if(!S.img)return;
-  const p=pos(e),r=S.rects[0];
-  if(!S.action){setCursor(r?(hitHandle(p,r)?'pointer':(inBox(p,r)?'move':'crosshair')):'crosshair');return}
+  const p=pos(e),r=S.rects[S.activeBox];
+  if(!S.action){
+    let c='crosshair';
+    if(r){if(hitHandle(p,r))c='pointer';else if(inBox(p,r))c='move'}
+    setCursor(c);return;
+  }
   e.preventDefault();
   if(S.action==='draw'){S.cur=p;draw();return}
+  if(S.action==='line'){S.linePts.push(p);S.cur=p;draw();return}
   if(!S.orig)return;
   if(S.action==='move'){
     const o=S.orig;
-    S.rects=[{...o,x:clamp(o.x+p.x-S.start.x,0,stage.width-o.w),y:clamp(o.y+p.y-S.start.y,0,stage.height-o.h)}];
+    S.rects[S.activeBox]={...o,
+      x:clamp(o.x+p.x-S.start.x,0,stage.width-o.w),
+      y:clamp(o.y+p.y-S.start.y,0,stage.height-o.h)};
   }else if(S.action==='resize'){
-    S.rects=[resizeBox(S.orig,S.handle,p)];
+    S.rects[S.activeBox]={...resizeBox(S.orig,S.handle,p),kind:S.orig.kind};
   }
   draw();updateReadout();
 }
@@ -541,30 +579,49 @@ function up(e){
   if(!S.action)return;
   if(S.action==='draw'&&S.cur){
     const r=normRect(S.start,S.cur);
-    if(r.w>=MIN_BOX&&r.h>=MIN_BOX)S.rects=[r];
+    if(r.w>=MIN_BOX&&r.h>=MIN_BOX)commitBox(r);
+  }else if(S.action==='line'&&S.linePts.length>1){
+    let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+    S.linePts.forEach(q=>{x1=Math.min(x1,q.x);y1=Math.min(y1,q.y);x2=Math.max(x2,q.x);y2=Math.max(y2,q.y)});
+    if(x2-x1>=MIN_BOX&&y2-y1>=MIN_BOX)commitBox({x:x1,y:y1,w:x2-x1,h:y2-y1,kind:'line'});
   }
-  S.action=null;S.cur=null;S.orig=null;S.handle=null;
+  S.action=null;S.cur=null;S.orig=null;S.handle=null;S.linePts=[];
   setCursor('crosshair');draw();checkReady();updateReadout();
   if(S.rects.length)onBoxReady();
 }
 stage.addEventListener('mousedown',down);stage.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
 stage.addEventListener('touchstart',down,{passive:false});stage.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',up);
 
-$('toolRect').onclick=()=>{toast('拖拽框选；框内拖动可移动，手柄可缩放，仅保留一个选框')};
-$('toolClear').onclick=()=>{S.rects=[];draw();checkReady();updateReadout();clearDetect();toast('已清除选框')};
+// 工具切换：矩形 / 线条（线条松开后取外接矩形作为自定义框）
+function setTool(t){
+  S.tool=t;
+  $('toolRect').classList.toggle('active',t==='rect');
+  $('toolLine').classList.toggle('active',t==='line');
+  toast(t==='line'?'线条框选：按住鼠标沿目标画线，松开生成自定义框':'矩形框选：拖拽画框，最多 3 个');
+}
+$('toolRect').onclick=()=>setTool('rect');
+$('toolLine').onclick=()=>setTool('line');
+$('toolDel').onclick=()=>{
+  if(!S.rects.length){toast('没有可删除的框');return}
+  S.rects.splice(S.activeBox,1);
+  S.activeBox=Math.max(0,Math.min(S.activeBox,S.rects.length-1));
+  draw();checkReady();updateReadout();clearDetect();
+  toast('已删除当前框');
+};
+$('toolClear').onclick=()=>{S.rects=[];S.activeBox=0;draw();checkReady();updateReadout();clearDetect();toast('已清除全部选框')};
 $('toolAuto').onclick=()=>{
   if(!S.img)return;
   const w=stage.width*CONFIG.autoBoxRatio,h=stage.height*CONFIG.autoBoxRatio*0.5;
-  S.rects=[{x:stage.width-w-16,y:stage.height-h-16,w,h}];
+  commitBox({x:stage.width-w-16,y:stage.height-h-16,w,h});
   draw();checkReady();updateReadout();onBoxReady();
-  toast('已自动定位疑似水印区域，可拖动/缩放微调');
+  toast(`已自动定位（共 ${S.rects.length}/${MAX_BOXES} 框），可拖动/缩放微调`);
 };
 
 /* 选框就绪回调：智能识别模式下自动识别内容类型并推荐引擎 */
 async function onBoxReady(){
   const badge=$('detectBadge');
   if($('engine').value!=='smart'||!S.rects.length){badge.style.display='none';return}
-  const r=S.rects[0];
+  const r=S.rects[S.activeBox]||S.rects[0];
   const rects=[{x:Math.round(r.x/S.scale),y:Math.round(r.y/S.scale),w:Math.round(r.w/S.scale),h:Math.round(r.h/S.scale)}];
   badge.style.display='inline-flex';badge.className='detect-badge loading';badge.textContent='智能识别中…';
   try{
@@ -772,6 +829,10 @@ function showResult(url,meta){
   S.resultData=url;
   $('imgAfter').src=url;
   $('imgBefore').src=baseImage.src;
+  // 每次展示结果都把对比线归位到中间，否则上一轮拖到边缘的位置会残留，
+  // 造成一侧几乎不可见、无法对比（用户截图里手柄贴左即此问题）
+  $('imgBefore').style.clipPath='inset(0 50% 0 0)';
+  $('handle').style.left='50%';
   const m=meta||{};
   const fw=(FRAMEWORKS[m.framework]||{}).label||S.framework;
   const strict=m.strict===true||m.strict==='true';
@@ -787,7 +848,7 @@ let dragging=false;
 function slide(e){
   const b=box.getBoundingClientRect();
   let x=(e.touches?e.touches[0].clientX:e.clientX)-b.left;
-  x=Math.max(0,Math.min(b.width,x));
+  x=Math.max(b.width*0.04,Math.min(b.width*0.96,x)); // 留 4% 边距，避免一侧完全消失
   const p=x/b.width*100;
   $('imgBefore').style.clipPath=`inset(0 ${100-p}% 0 0)`;
   handle.style.left=p+'%';
@@ -840,7 +901,7 @@ function downloadResult(){
   toast('已导出修复结果');
 }
 function resetAll(){
-  S.img=null;S.rects=[];S.resultData=null;S.action=null;S.orig=null;S.detection=null;
+  S.img=null;S.rects=[];S.resultData=null;S.action=null;S.orig=null;S.detection=null;S.activeBox=0;S.linePts=[];
   $('editor').classList.remove('active');$('compare').classList.remove('active');
   dz.style.display='flex';$('fileInput').value='';$('fileInfo').textContent='尚未选择文件';
   clearDetect();updateReadout();
