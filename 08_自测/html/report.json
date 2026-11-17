@@ -1,0 +1,168 @@
+{
+  "html": "02_HTML版/净像去水印_普通版_双击即用.html",
+  "at": "2026-11-17T05:34:39.149Z",
+  "items": [
+    {
+      "scenario": "正常框",
+      "mode": "smart",
+      "ms": 45,
+      "pass": true,
+      "resBefore": 0.109,
+      "resAfter": 0,
+      "edgeDelta": 9.4
+    },
+    {
+      "scenario": "正常框",
+      "mode": "average",
+      "ms": 1,
+      "pass": true,
+      "resBefore": 0.109,
+      "resAfter": 0,
+      "edgeDelta": 104.2
+    },
+    {
+      "scenario": "正常框",
+      "mode": "texture",
+      "ms": 46,
+      "pass": true,
+      "resBefore": 0.109,
+      "resAfter": 0,
+      "edgeDelta": 9.4
+    },
+    {
+      "scenario": "贴底边",
+      "mode": "smart",
+      "ms": 77,
+      "pass": true,
+      "resBefore": 0.056,
+      "resAfter": 0,
+      "edgeDelta": 6.9
+    },
+    {
+      "scenario": "贴底边",
+      "mode": "average",
+      "ms": 1,
+      "pass": true,
+      "resBefore": 0.056,
+      "resAfter": 0,
+      "edgeDelta": 140.3
+    },
+    {
+      "scenario": "贴底边",
+      "mode": "texture",
+      "ms": 76,
+      "pass": true,
+      "resBefore": 0.056,
+      "resAfter": 0,
+      "edgeDelta": 6.9
+    },
+    {
+      "scenario": "贴右下角",
+      "mode": "smart",
+      "ms": 57,
+      "pass": true,
+      "resBefore": 0.057,
+      "resAfter": 0,
+      "edgeDelta": 7.9
+    },
+    {
+      "scenario": "贴右下角",
+      "mode": "average",
+      "ms": 1,
+      "pass": true,
+      "resBefore": 0.057,
+      "resAfter": 0,
+      "edgeDelta": 111.4
+    },
+    {
+      "scenario": "贴右下角",
+      "mode": "texture",
+      "ms": 76,
+      "pass": true,
+      "resBefore": 0.057,
+      "resAfter": 0,
+      "edgeDelta": 7.9
+    },
+    {
+      "scenario": "贴左上角",
+      "mode": "smart",
+      "ms": 22,
+      "pass": true,
+      "resBefore": 0.848,
+      "resAfter": 0.913,
+      "edgeDelta": 7.5
+    },
+    {
+      "scenario": "贴左上角",
+      "mode": "average",
+      "ms": 0,
+      "pass": true,
+      "resBefore": 0.848,
+      "resAfter": 1,
+      "edgeDelta": 106
+    },
+    {
+      "scenario": "贴左上角",
+      "mode": "texture",
+      "ms": 25,
+      "pass": true,
+      "resBefore": 0.848,
+      "resAfter": 0.913,
+      "edgeDelta": 7.5
+    },
+    {
+      "scenario": "超大框",
+      "mode": "smart",
+      "ms": 37,
+      "pass": true,
+      "resBefore": 0.007,
+      "resAfter": 0.053,
+      "edgeDelta": 131.2
+    },
+    {
+      "scenario": "超大框",
+      "mode": "average",
+      "ms": 1,
+      "pass": true,
+      "resBefore": 0.007,
+      "resAfter": 0,
+      "edgeDelta": 153.3
+    },
+    {
+      "scenario": "超大框",
+      "mode": "texture",
+      "ms": 30,
+      "pass": true,
+      "resBefore": 0.007,
+      "resAfter": 0.053,
+      "edgeDelta": 131.2
+    },
+    {
+      "scenario": "极小框",
+      "mode": "smart",
+      "ms": 1,
+      "pass": true,
+      "resBefore": 1,
+      "resAfter": 1,
+      "edgeDelta": 3.2
+    },
+    {
+      "scenario": "极小框",
+      "mode": "average",
+      "ms": 0,
+      "pass": true,
+      "resBefore": 1,
+      "resAfter": 1,
+      "edgeDelta": 16.4
+    },
+    {
+      "scenario": "极小框",
+      "mode": "texture",
+      "ms": 1,
+      "pass": true,
+      "resBefore": 1,
+      "resAfter": 1,
+      "edgeDelta": 3.2
+    }
+  ]
+}

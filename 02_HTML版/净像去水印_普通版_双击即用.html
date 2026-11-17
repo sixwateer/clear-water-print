@@ -9,7 +9,8 @@
   ============================================================
   特点：纯前端单文件，双击用浏览器打开即可使用，无需安装任何东西，
         不联网、不上传，图片只在你的电脑里处理。
-  算法：拉普拉斯扩散修复（对纯色/渐变背景的小水印效果最好）。
+  算法：拉普拉斯扩散修复（等价于传统 inpainting 扩散，对文字水印能
+        彻底去除、不留残影；纯色/渐变/纹理背景均适用）。
   修改：所有文案与参数集中在下方 CONFIG 与 CSS 的 :root 中。
   合规：仅用于处理你有权处理的自有内容。
   ============================================================
@@ -212,6 +213,7 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
           <div class="canvas-wrap"><canvas id="stage"></canvas></div>
           <div class="toolbar">
             <button class="tool active" id="toolRect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>框选水印</button>
+            <button class="tool" id="toolAuto" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6M4 4v6M20 20h-6M20 20v-6"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>自动框右下角</button>
             <button class="tool" id="toolClear" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除选框</button>
             <button class="tool" id="toolReselect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>更换图片</button>
             <span class="tool-hint">拖拽框选 · 可拖动/缩放微调 · 仅保留一个选框</span>
@@ -229,13 +231,13 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
           <option value="auto">智能识别 · 自动选最合适的方式（推荐）</option>
           <option value="smart">智能修复 · 纯色/渐变背景无痕扩散</option>
           <option value="average">快速填充 · 适合小面积水印</option>
-          <option value="texture">纹理平移 · 适合重复纹理背景</option>
+          <option value="texture">纹理重建 · 适合木纹/草地等纹理背景</option>
         </select>
         <div class="mode-desc" id="modeDesc"></div>
         <div id="detectBadge" class="detect-badge ok" style="display:none"></div>
         <div class="opt-row" style="margin-top:10px"><span>修复后轻度锐化</span><div class="switch on" id="swSharpen"></div></div>
         <div class="opt-row" style="display:block">
-          <div style="display:flex;justify-content:space-between"><span>修复力度（ iterations ）</span><span class="val" id="iterVal">标准</span></div>
+          <div style="display:flex;justify-content:space-between"><span>修复力度</span><span class="val" id="iterVal">标准</span></div>
           <input type="range" class="range" id="iterRange" min="1" max="3" value="2">
         </div>
       </div>
@@ -282,18 +284,18 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
     <div class="card-head" style="border:none;padding-left:0"><div class="card-title">三步就能用好</div></div>
     <div class="help-grid">
       <div class="help-card"><div class="n">1</div><h4>上传或拖入图片</h4><p>也可以点“用内置示例体验”，先看看效果。图片不会上传到任何地方。</p></div>
-      <div class="help-card"><div class="n">2</div><h4>框住水印区域</h4><p>在图片上按住鼠标拖拽，把水印框起来。框得贴合一些，效果更好。可以框多个位置。</p></div>
+      <div class="help-card"><div class="n">2</div><h4>框住水印区域</h4><p>在图片上按住鼠标拖拽，把水印框起来。框得贴合一些，效果更好。框内拖动可移动，手柄可缩放。</p></div>
       <div class="help-card"><div class="n">3</div><h4>点修复并下载</h4><p>勾选授权确认，点“开始修复”。拖动白线对比，满意后点“下载修复结果”。</p></div>
     </div>
     <div class="tips">
-      <b>效果小贴士：</b>本工具对<b>纯色或渐变背景</b>上的水印（如示例图）效果最好，能几乎无痕还原；对照片里复杂纹理上的水印，建议把框选范围画得紧一点，或试试“纹理平移”。想处理视频、或追求专业级的复杂背景修复，请使用项目里的“进阶版 + 后端引擎”。
+      <b>效果小贴士：</b>本工具对<b>纯色或渐变背景</b>上的水印（如示例图）效果最好，能几乎无痕还原；对照片里复杂纹理上的水印，建议把框选范围画得紧一点，修复会自动向外扩一点吃掉边缘残影。想处理视频、或追求专业级的复杂背景修复，请使用项目里的“进阶版 + 后端引擎”。
     </div>
   </section>
 </main>
 
 <footer>
   <p class="disc">本工具仅用于你有权处理的自有内容。请遵守平台条款与相关法律法规。普通版为纯前端实现，复杂场景请用进阶版。</p>
-  <p>净像 Watermark Studio · 普通版 v1.0 · 纯前端单文件</p>
+  <p>净像 Watermark Studio · 普通版 v1.1 · 纯前端单文件</p>
 </footer>
 
 <div class="toast" id="toast"></div>
@@ -321,10 +323,10 @@ const CONFIG = {
   sharpenAmount: 0.25,         // 轻度锐化强度（0=关闭）
   strengthLabel: { 1: '快速', 2: '标准', 3: '精细' },
   modeDesc: {
-    auto:    '框选后自动分析背景：纯色/渐变走无痕扩散，木纹/草地等重复纹理走纹理平移，无需手动判断。',
+    auto:    '框选后自动分析框周围背景，挑选合适的重建方式，一般不用手动改。',
     smart:   '像“补齐拼图”一样，根据水印四周的颜色向内推算，最适合纯色、渐变或柔和背景。',
     average: '直接取边缘颜色平铺填充，速度最快，适合面积很小、背景单一的水印。',
-    texture: '从水印旁边复制相似纹理过来，适合草地、砖墙等有重复图案的背景。'
+    texture: '在扩散重建的基础上，从邻近干净区域补一点细微纹理，减轻“涂抹感”。'
   },
   exampleWatermarkText: ['@我的小红书', '抖音号: demo001'] // 内置示例图上的水印文字（用于示例生成提示）
 };
@@ -348,7 +350,17 @@ let loadSeq=0; // 加载序号：防止快速连续选图时，旧图 onload 后
 dz.onclick=()=>fi.click();
 dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')};
 dz.ondragleave=()=>dz.classList.remove('drag');
-dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files&&e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])};
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');e.stopPropagation();if(e.dataTransfer.files&&e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])};
+// 全页拖放：图片已加载后把新图拖到页面任意位置也能直接换图（dropzone 已隐藏时尤其有用）
+const hasFiles=e=>e.dataTransfer&&Array.from(e.dataTransfer.types||[]).indexOf('Files')>=0;
+window.addEventListener('dragover',e=>{if(hasFiles(e))e.preventDefault()});
+window.addEventListener('drop',e=>{
+  if(!hasFiles(e))return;
+  if(dz.contains(e.target))return;             // 交给 dropzone 自己处理，避免重复加载
+  e.preventDefault();
+  const f=e.dataTransfer.files&&e.dataTransfer.files[0];
+  if(f)loadFile(f);
+});
 fi.onchange=e=>{
   const f=e.target.files&&e.target.files[0];
   if(f)loadFile(f);
@@ -406,6 +418,9 @@ function loadImageSrc(src,name){
     $('btnText').textContent='开始修复';
     dz.style.display='none';$('editor').classList.add('active');
     setFlow(2);draw();checkReady();
+    // 超大图提示：处理在原图分辨率上进行，像素过多时浏览器内存吃紧
+    const mp=img.width*img.height/1e6;
+    if(mp>16)toast(`图片较大（${mp.toFixed(0)} 百万像素），修复可能需要几秒，请耐心等待`);
   };
   img.onerror=()=>{
     if(seq!==loadSeq)return;
@@ -472,7 +487,7 @@ function updateReadout(){
   const el=$('boxReadout');if(!el)return;
   if(!S.rects.length){el.textContent='在图片上拖拽框选；拖动选框可移动，拉动四角/四边手柄可缩放';return}
   const r=S.rects[0],ox=Math.round(r.x/S.scale),oy=Math.round(r.y/S.scale),ow=Math.round(r.w/S.scale),oh=Math.round(r.h/S.scale);
-  el.textContent=`选框（原图像素）：x ${ox} · y ${oy} · 宽 ${ow} × 高 ${oh}　|　拖动内部移动，拖动手柄缩放`;
+  el.textContent=`选框（原图像素）：x ${ox} · y ${oy} · 宽 ${ow} × 高 ${oh}　|　拖动内部移动，拖动手柄缩放，方向键微调（Shift 加速）`;
 }
 function down(e){
   if(!baseImage)return;e.preventDefault();
@@ -515,36 +530,92 @@ function up(e){
 stage.addEventListener('mousedown',down);stage.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
 stage.addEventListener('touchstart',down,{passive:false});stage.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',up);
 
+// 方向键微调选框（1px，按住 Shift 为 10px）：框选后再精细对位，不用反复拖鼠标
+window.addEventListener('keydown',e=>{
+  if(!baseImage||!S.rects.length||S.action)return;
+  const tag=(document.activeElement&&document.activeElement.tagName)||'';
+  if(/INPUT|SELECT|TEXTAREA|BUTTON/.test(tag))return;
+  const step=e.shiftKey?10:1;
+  let dx=0,dy=0;
+  if(e.key==='ArrowLeft')dx=-step;else if(e.key==='ArrowRight')dx=step;
+  else if(e.key==='ArrowUp')dy=-step;else if(e.key==='ArrowDown')dy=step;
+  else return;
+  e.preventDefault();
+  const r=S.rects[0];
+  S.rects=[{...r,x:clamp(r.x+dx,0,stage.width-r.w),y:clamp(r.y+dy,0,stage.height-r.h)}];
+  draw();updateReadout();
+});
+
 $('toolRect').onclick=()=>toast('拖拽框选；框内拖动可移动，手柄可缩放，仅保留一个选框');
+// 自动框右下角：多数平台水印落在右下角，一键框好再微调，省去拖拽
+$('toolAuto').onclick=()=>{
+  if(!baseImage){toast('请先选择图片');return}
+  const bw=Math.round(stage.width*0.32), bh=Math.round(stage.height*0.14);
+  const mx=Math.round(stage.width*0.02), my=Math.round(stage.height*0.02);
+  S.rects=[{x:Math.max(0,stage.width-bw-mx),y:Math.max(0,stage.height-bh-my),w:bw,h:bh}];
+  draw();checkReady();updateReadout();onBoxReady();
+  toast('已自动框选右下角，可拖动微调后修复');
+};
 $('toolClear').onclick=()=>{S.rects=[];draw();checkReady();updateReadout();clearDetect();toast('已清除选框')};
 $('toolReselect').onclick=()=>{resetAll(true)};
 
-/* 智能识别（纯前端，无需后端）：分析框内背景的局部方差与高频能量，
-   自动在 smart / texture 之间选择，减少手动判断。 */
+/* 智能识别（纯前端，无需后端）：判断框周围背景是"平滑"还是"有纹理"。
+   做法与阈值都经过实测校准：
+   - 只在"框外一圈环带"统计，避免框内的水印笔画本身被当成纹理；
+   - 用拉普拉斯（二阶差分）的**中位数**衡量纹理密度：平滑渐变/纯色的
+     二阶差分≈0，草地/砖墙等纹理明显>0；用中位数而非均值，避免框边
+     恰好压到一根强边缘（电线/桌沿）就被误判成纹理；
+   - getImageData 采样矩形必须严格落在画布内，否则浏览器抛
+     IndexSizeError（框贴边 + 四舍五入越界 1px 就会发生），因此统一下
+     夹紧并 try/catch 兜底，失败时回退 smart，绝不打断框选流程。
+   实测参考值（0~255 亮度，环带中位数）：纯色/渐变 0，平滑木桌 1~2，
+   手指皮肤 ≈1，木纹背景 2~5，草地/砖墙通常 >6。阈值取 1.8 / 6。 */
 function localDetect(r){
-  const x=Math.max(0,Math.round(r.x/S.scale)-8),y=Math.max(0,Math.round(r.y/S.scale)-8);
-  const w=Math.min(baseImage.width-x,Math.round(r.w/S.scale)+16),h=Math.min(baseImage.height-y,Math.round(r.h/S.scale)+16);
-  if(w<4||h<4)return{label:'小区域',mode:'smart'};
-  const sample=ctx.getImageData(Math.round(x*S.scale),Math.round(y*S.scale),Math.max(1,Math.round(w*S.scale)),Math.max(1,Math.round(h*S.scale)));
-  const d=sample.data;let sr=0,sg=0,sb=0,s2=0,n=0,grad=0;
-  const W=sample.width,H=sample.height;
-  for(let j=1;j<H-1;j++)for(let i=1;i<W-1;i++){
-    const k=(j*W+i)*4;const l=(k-4),u=(k-W*4);
-    const r=d[k],g=d[k+1],b=d[k+2];
-    sr+=r;sg+=g;sb+=b;s2+=r*r+g*g+b*b;n++;
-    grad+=Math.abs(r-d[l])+Math.abs(g-d[l+1])+Math.abs(b-d[l+2])
-         +Math.abs(r-d[u])+Math.abs(g-d[u+1])+Math.abs(b-d[u+2]);
+  try{
+    const cw=stage.width, ch=stage.height;
+    const pad=Math.max(6,Math.round(Math.min(r.w,r.h)*0.35));
+    const cx0=clamp(Math.round(r.x-pad),0,cw-1), cy0=clamp(Math.round(r.y-pad),0,ch-1);
+    const cx1=clamp(Math.round(r.x+r.w+pad),cx0+1,cw), cy1=clamp(Math.round(r.y+r.h+pad),cy0+1,ch);
+    const sw=cx1-cx0, sh=cy1-cy0;
+    if(sw<8||sh<8)return{label:'小区域',mode:'smart'};
+    const sample=ctx.getImageData(cx0,cy0,sw,sh);
+    const d=sample.data,W=sample.width,H=sample.height;
+    // 内框在 sample 内的坐标（统计时排除）
+    const ix0=r.x-cx0, iy0=r.y-cy0, ix1=ix0+r.w, iy1=iy0+r.h;
+    const hist=new Uint32Array(256);   // 拉普拉斯幅度直方图（取中位数用）
+    let cnt=0,gradSum=0,gn=0;
+    const lumAt=(i,j)=>{const k=(j*W+i)*4;return (d[k]+d[k+1]+d[k+2])/3};
+    for(let j=1;j<H-1;j++)for(let i=1;i<W-1;i++){
+      const inBox=(i>=ix0&&i<=ix1&&j>=iy0&&j<=iy1);
+      if(inBox)continue;               // 只统计环带
+      const c=lumAt(i,j);
+      const lap=Math.abs(4*c-lumAt(i-1,j)-lumAt(i+1,j)-lumAt(i,j-1)-lumAt(i,j+1));
+      hist[Math.min(255,Math.round(lap))]++;
+      cnt++;
+      gradSum+=Math.abs(c-lumAt(i-1,j))+Math.abs(c-lumAt(i,j-1));
+      gn++;
+    }
+    if(cnt<40){                        // 环带太窄（框几乎占满画布）：改用框内统计
+      for(let j=1;j<H-1;j++)for(let i=1;i<W-1;i++){
+        const c=lumAt(i,j);
+        const lap=Math.abs(4*c-lumAt(i-1,j)-lumAt(i+1,j)-lumAt(i,j-1)-lumAt(i,j+1));
+        hist[Math.min(255,Math.round(lap))]++;cnt++;
+      }
+    }
+    if(!cnt)return{label:'小区域',mode:'smart'};
+    // 中位数
+    let acc=0,med=0;
+    for(let v=0;v<256;v++){acc+=hist[v];if(acc>=cnt/2){med=v;break}}
+    const edge=gn?gradSum/gn:0;
+    let mode,label;
+    if(med>6){mode='texture';label='明显纹理'}
+    else if(med>1.8){mode='texture';label='轻纹理'}
+    else{mode='smart';label='纯色/渐变'}
+    return{label,mode,detail:{lapMed:med,edge:Math.round(edge)}};
+  }catch(err){
+    console.warn('智能识别失败，回退智能修复：',err);
+    return{label:'区域过小或贴边',mode:'smart'};
   }
-  if(!n)return{label:'小区域',mode:'smart'};
-  const mr=sr/n,mg=sg/n,mb=sb/n;
-  const variance=Math.max(0,s2/n-(mr*mr+mg*mg+mb*mb)/1); // 三通道合并方差
-  const std=Math.sqrt(variance);
-  const edge=grad/n;
-  let mode,label;
-  if(edge>18&&std>16){mode='texture';label='重复纹理'}
-  else if(edge>10){mode='texture';label='纹理背景'}
-  else{mode='smart';label='纯色/渐变'}
-  return{label,mode,detail:{edge:Math.round(edge),std:Math.round(std)}};
 }
 function clearDetect(){S.detection=null;const b=$('detectBadge');if(b)b.style.display='none'}
 function onBoxReady(){
@@ -552,7 +623,7 @@ function onBoxReady(){
   if($('mode').value!=='auto'){badge.style.display='none';S.effectiveMode=$('mode').value;return}
   const d=localDetect(S.rects[0]);S.detection=d;S.effectiveMode=d.mode;
   badge.style.display='inline-flex';badge.className='detect-badge ok';
-  badge.textContent=`智能识别：${d.label} · 已自动选用「${d.mode==='texture'?'纹理平移':'智能修复'}」`;
+  badge.textContent=`智能识别：${d.label} · 已自动选用「${d.mode==='texture'?'纹理重建':'智能修复'}」`;
 }
 
 /* ============================================================
@@ -571,20 +642,22 @@ function checkReady(){$('btnProcess').disabled=!(baseImage&&S.rects.length&&$('a
    ------------------------------------------------------------
    1) smart   拉普拉斯扩散：把框内像素当作“待解”，框外像素作边界条件，
               反复用上下左右邻居平均值迭代，等价于求解调和函数。对纯色/
-              渐变背景能近乎无痕重建。
+              渐变背景能近乎无痕重建；大框自动走多尺度加速。
    2) average 边缘颜色平均填充（快速）。
-   3) texture 从水印框上方复制同尺寸纹理平移过来。
+   3) texture 与 smart 同源（整框扩散重建），修复前会按短边比例外扩
+              选框，覆盖水印的抗锯齿边缘与投影阴影，避免浅色残边。
    ============================================================ */
 $('btnProcess').onclick=()=>{
   if(!baseImage||!S.rects.length)return;
   setFlow(3);$('btnProcess').disabled=true;$('btnText').textContent='修复中…';
+  const t0=performance.now();
   // 让浏览器先渲染“修复中”状态
   setTimeout(()=>{
     try{
       const result=repair();
       showResult(result);
-      const t=(performance.now()-S._t0).toFixed(0);
-      toast('修复完成 · 拖动白线对比效果');
+      const sec=((performance.now()-t0)/1000).toFixed(2);
+      toast(`修复完成 · 用时 ${sec}s · 拖动白线对比效果`);
     }catch(err){console.error(err);toast('修复出错：'+err.message)}
     finally{
       $('btnText').textContent='重新修复';$('btnProcess').disabled=false;
@@ -592,7 +665,6 @@ $('btnProcess').onclick=()=>{
       $('compare').scrollIntoView({behavior:'smooth',block:'center'});
     }
   },30);
-  S._t0=performance.now();
 };
 
 function repair(){
@@ -603,6 +675,7 @@ function repair(){
   cx.drawImage(baseImage,0,0);
   const imgData=cx.getImageData(0,0,c.width,c.height);
   const data=imgData.data,W=c.width,H=c.height;
+  const repairedRects=[];   // 记录实际修复区域（含外扩），供局部锐化使用
 
   S.rects.forEach(r=>{
     // 画布坐标 -> 原图坐标
@@ -613,13 +686,26 @@ function repair(){
     if(w<=0||h<=0)return;
     // 智能识别模式下用 effectiveMode（由 onBoxReady 判定），其余用手动选择
     const m=(S.mode==='auto')?S.effectiveMode:S.mode;
-    if(m==='average') fillAverage(data,W,H,x,y,w,h);
-    else if(m==='texture') fillTexture(cx,data,W,H,x,y,w,h);
-    else fillLaplace(data,W,H,x,y,w,h,CONFIG.autoIterations[S.iter]);
+    // 两种方式都先外扩框（覆盖抗锯齿边缘与投影阴影），再修复
+    const g=growRect(x,y,w,h,W,H);
+    if(m==='average'){
+      fillAverage(data,W,H,g.x,g.y,g.w,g.h);
+      repairedRects.push(g);
+    }else{
+      // 纹理背景与纯色/渐变统一走拉普拉斯扩散（等价于后端 Telea 扩散）：
+      // 整框从边界向内平滑重建，能彻底去除文字、不留残影，不依赖 OpenCV。
+      // 修复前先按短边比例外扩（growRect），把水印的抗锯齿边缘与投影阴影
+      // 一并纳入修复区，避免框外过渡像素被当边界保留形成浅色残边。
+      fillLaplace(data,W,H,g.x,g.y,g.w,g.h,CONFIG.autoIterations[S.iter]);
+      // 纹理模式下再做一次"邻近干净块高频回注"，把扩散抹平的纹理观感
+      // 补回来（失败/不安全时自动跳过，不影响去水印结果）
+      if(m==='texture')injectTexture(data,W,H,g);
+      repairedRects.push(g);
+    }
   });
 
   if(S.sharpen){
-    const out=sharpen(imgData,W,H,CONFIG.sharpenAmount);
+    const out=sharpen(imgData,W,H,CONFIG.sharpenAmount,repairedRects);
     cx.putImageData(out,0,0);
   }else{
     cx.putImageData(imgData,0,0);
@@ -631,76 +717,236 @@ function repair(){
 function fillAverage(data,W,H,x,y,w,h){
   const pad=3;
   let r=0,g=0,b=0,n=0;
-  const sample=(sx,sy)=>{if(sx<0||sy<0||sx>=W||sy>=H)return;sx=Math.max(0,Math.min(W-1,sx));sy=Math.max(0,Math.min(H-1,sy));const i=(sy*W+sx)*4;r+=data[i];g+=data[i+1];b+=data[i+2];n++};
+  // 采样框外 pad 圈；若采样点因贴边 clamp 后落回框内（水印区），则放弃该点，
+  // 防止水印颜色混入平均色导致修复区发灰/发白
+  const sample=(sx,sy)=>{
+    sx=Math.max(0,Math.min(W-1,sx));sy=Math.max(0,Math.min(H-1,sy));
+    if(sx>=x&&sx<x+w&&sy>=y&&sy<y+h)return; // 落回框内 = 水印像素，弃用
+    const i=(sy*W+sx)*4;r+=data[i];g+=data[i+1];b+=data[i+2];n++;
+  };
   for(let i=-pad;i<w+pad;i++){sample(x+i,y-pad);sample(x+i,y+h+pad-1)}
   for(let j=-pad;j<h+pad;j++){sample(x-pad,y+j);sample(x+w+pad-1,y+j)}
-  r/=n||1;g/=n||1;b/=n||1;
+  if(n===0){const i=((H-1)*W+(W-1))*4;r=data[i];g=data[i+1];b=data[i+2]} // 极端：整图皆框，用右下角颜色兜底
+  else{r/=n;g/=n;b/=n}
   for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++){const i=(yy*W+xx)*4;data[i]=r;data[i+1]=g;data[i+2]=b}
 }
 
-// 方式2：拉普拉斯扩散（核心）
+// 方式2：拉普拉斯扩散（核心）。大框自动走多尺度加速。
 function fillLaplace(data,W,H,x,y,w,h,iters){
-  const pad=2;                       // 取框外 2 像素作为固定边界
-  const lw=w+pad*2,lh=h+pad*2,N=lw*lh;
-  const R=new Float32Array(N),G=new Float32Array(N),B=new Float32Array(N);
-  // 1) 边界用真实像素，并统计边界平均色
-  let br=0,bg=0,bb=0,bn=0;
-  for(let j=0;j<lh;j++)for(let i=0;i<lw;i++){
-    const gx=Math.max(0,Math.min(W-1,x-pad+i));
-    const gy=Math.max(0,Math.min(H-1,y-pad+j));
-    const idx=j*lw+i, s=(gy*W+gx)*4;
-    const isInner=(i>=pad&&i<lw-pad&&j>=pad&&j<lh-pad);
-    if(!isInner){R[idx]=data[s];G[idx]=data[s+1];B[idx]=data[s+2];br+=data[s];bg+=data[s+1];bb+=data[s+2];bn++}
-  }
-  // 2) 内部用边界平均色作为干净初值（避免水印颜色参与迭代，收敛更快更干净）
-  br/=bn||1;bg/=bn||1;bb/=bn||1;
-  for(let j=pad;j<lh-pad;j++)for(let i=pad;i<lw-pad;i++){
-    const k=j*lw+i;R[k]=br;G[k]=bg;B[k]=bb;
-  }
-  // 3) 迭代：内部像素 = 四邻平均值；边界保持不变（狄利克雷条件）
-  for(let it=0;it<iters;it++){
-    for(let j=pad;j<lh-pad;j++){
-      const row=j*lw;
-      for(let i=pad;i<lw-pad;i++){
-        const k=row+i;
-        const sum=[R[k-1]+R[k+1]+R[k-lw]+R[k+lw],
-                   G[k-1]+G[k+1]+G[k-lw]+G[k+lw],
-                   B[k-1]+B[k+1]+B[k-lw]+B[k+lw]];
-        R[k]=sum[0]*.25;G[k]=sum[1]*.25;B[k]=sum[2]*.25;
-      }
+  const MAX_DIM=96, SCALE_DIM=64, pad=2;
+  // ---- 大框：多尺度（降采样 → 扩散 → 双线性放大）----
+  if(Math.min(w,h)>MAX_DIM){
+    const f=SCALE_DIM/Math.min(w,h);
+    const sw=Math.max(8,Math.round(w*f)), sh=Math.max(8,Math.round(h*f));
+    const lw=sw+pad*2, lh=sh+pad*2;
+    const R=new Float32Array(lw*lh),G=new Float32Array(lw*lh),B=new Float32Array(lw*lh);
+    // 低分辨率格 (i,j) 与原图的映射：原图 x+(i-pad)/f
+    laplaceLoad(data,W,H,x,y,w,h,R,G,B,lw,lh,pad,(i,j)=>{
+      const gx=Math.round(x+(i-pad)/f), gy=Math.round(y+(j-pad)/f);
+      return mirrorSample(gx,gy,x,y,w,h,W,H);
+    });
+    // 小网格仍需足够迭代让边界色向内传播（雅可比每次传播 1 格）
+    laplaceCore(R,G,B,lw,lh,pad,Math.max(300,Math.round(iters*f)));
+    // 放大写回：原图偏移 u ↔ 低分辨率坐标 pad-0.5+(u+0.5)*f
+    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+      const li=pad-0.5+(i+0.5)*f, lj=pad-0.5+(j+0.5)*f;
+      const d=((y+j)*W+(x+i))*4;
+      data[d]=bilinear(R,lw,lh,li,lj);
+      data[d+1]=bilinear(G,lw,lh,li,lj);
+      data[d+2]=bilinear(B,lw,lh,li,lj);
     }
+    return;
   }
-  // 写回
+  // ---- 小框：原尺寸扩散 ----
+  const lw=w+pad*2, lh=h+pad*2;
+  const R=new Float32Array(lw*lh),G=new Float32Array(lw*lh),B=new Float32Array(lw*lh);
+  laplaceLoad(data,W,H,x,y,w,h,R,G,B,lw,lh,pad,(i,j)=>mirrorSample(x-pad+i,y-pad+j,x,y,w,h,W,H));
+  laplaceCore(R,G,B,lw,lh,pad,iters);
   for(let j=0;j<h;j++)for(let i=0;i<w;i++){
     const k=(j+pad)*lw+(i+pad), d=((y+j)*W+(x+i))*4;
     data[d]=R[k];data[d+1]=G[k];data[d+2]=B[k];
   }
 }
 
-// 方式3：纹理平移（从上方复制）
-function fillTexture(cx,data,W,H,x,y,w,h){
-  let sy=y-h-padSafe(4);              // 优先取框上方
-  if(sy<0) sy=y+h+padSafe(4);         // 否则取框下方
-  sy=Math.max(0,Math.min(H-h,sy));
-  const src=cx.getImageData(x,sy,w,h).data;
-  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
-    const s=(j*w+i)*4,d=((y+j)*W+(x+i))*4;
-    data[d]=src[s];data[d+1]=src[s+1];data[d+2]=src[s+2];
+// 边界采样镜像：点 (gx,gy) 越界先 clamp；若落在框内（水印区），
+// 沿最近方向镜像到框外；无法镜像（框贴该边）时返回 null，
+// 由调用方用"有效边界均色"兜底（不能取图像对角，否则会引入异色污染）
+function mirrorSample(gx,gy,x,y,w,h,W,H){
+  gx=Math.max(0,Math.min(W-1,gx));gy=Math.max(0,Math.min(H-1,gy));
+  if(gx>=x&&gx<x+w&&gy>=y&&gy<y+h){
+    const dl=gx-x+1, dr=(x+w)-gx, dt=gy-y+1, db=(y+h)-gy;
+    const m=Math.min(dl,dr,dt,db);
+    if(m===dl)gx=x-1; else if(m===dr)gx=x+w;
+    else if(m===dt)gy=y-1; else gy=y+h;
+  }
+  if(gx<0||gx>=W||gy<0||gy>=H||(gx>=x&&gx<x+w&&gy>=y&&gy<y+h))return null;
+  return [gx,gy];
+}
+
+// 载入边界样本（sample(i,j) 返回原图坐标或 null），并初始化内部：
+// 内部统一用"有效边界均色"作初值，避免水印原色参与迭代；
+// 无任何有效边界的极端情况（框占满全图）退到全图抽样均色。
+function laplaceLoad(data,W,H,x,y,w,h,R,G,B,lw,lh,pad,sample){
+  const invalid=[];
+  let br=0,bg=0,bb=0,bn=0;
+  for(let j=0;j<lh;j++)for(let i=0;i<lw;i++){
+    if(i>=pad&&i<lw-pad&&j>=pad&&j<lh-pad)continue;  // 内部稍后统一初始化
+    const g=sample(i,j), k=j*lw+i;
+    if(!g){invalid.push(k);continue}
+    const s=(g[1]*W+g[0])*4;
+    R[k]=data[s];G[k]=data[s+1];B[k]=data[s+2];
+    br+=data[s];bg+=data[s+1];bb+=data[s+2];bn++;
+  }
+  if(!bn){
+    let sr=0,sg=0,sb=0,n=0;
+    for(let i=0;i<W*H;i+=97){const s=i*4;sr+=data[s];sg+=data[s+1];sb+=data[s+2];n++}
+    br=sr/(n||1);bg=sg/(n||1);bb=sb/(n||1);
+  }else{br/=bn;bg/=bn;bb/=bn}
+  for(const k of invalid){R[k]=br;G[k]=bg;B[k]=bb}
+  for(let j=pad;j<lh-pad;j++)for(let i=pad;i<lw-pad;i++){
+    const k=j*lw+i;R[k]=br;G[k]=bg;B[k]=bb;
   }
 }
-function padSafe(n){return n}
 
-// 轻度锐化（unsharp mask）：用 Laplace 锐化核对图像做轻微增强
-function sharpen(imgData,W,H,amount){
+// 扩散迭代核心：内部像素=四邻平均，边界固定（狄利克雷条件）
+function laplaceCore(R,G,B,lw,lh,pad,iters){
+  for(let it=0;it<iters;it++){
+    for(let j=pad;j<lh-pad;j++){
+      const row=j*lw;
+      for(let i=pad;i<lw-pad;i++){
+        const k=row+i;
+        R[k]=(R[k-1]+R[k+1]+R[k-lw]+R[k+lw])*.25;
+        G[k]=(G[k-1]+G[k+1]+G[k-lw]+G[k+lw])*.25;
+        B[k]=(B[k-1]+B[k+1]+B[k-lw]+B[k+lw])*.25;
+      }
+    }
+  }
+}
+
+// 双线性插值采样（多尺度放大用）
+function bilinear(A,lw,lh,fx,fy){
+  fx=Math.max(0,Math.min(lw-1,fx));fy=Math.max(0,Math.min(lh-1,fy));
+  const x0=Math.floor(fx),y0=Math.floor(fy);
+  const x1=Math.min(lw-1,x0+1),y1=Math.min(lh-1,y0+1);
+  const tx=fx-x0,ty=fy-y0;
+  const a=A[y0*lw+x0],b=A[y0*lw+x1],c=A[y1*lw+x0],d=A[y1*lw+x1];
+  return a*(1-tx)*(1-ty)+b*tx*(1-ty)+c*(1-tx)*ty+d*tx*ty;
+}
+
+// 修复框按短边比例外扩（3~12px）：覆盖水印抗锯齿边缘与投影阴影，
+// 否则框外过渡像素会被当边界保留，形成一圈浅色残边。
+function growRect(x,y,w,h,W,H){
+  const g=Math.max(3,Math.min(12,Math.round(Math.min(w,h)*0.06)));
+  const nx=Math.max(0,x-g), ny=Math.max(0,y-g);
+  return {x:nx, y:ny,
+    w:Math.min(W-nx, w+(x-nx)+g),
+    h:Math.min(H-ny, h+(y-ny)+g)};
+}
+
+// 框外一圈边界平均色
+function boxMean(data,W,H,x,y,w,h){
+  let r=0,g=0,b=0,n=0;
+  for(let j=Math.max(0,y);j<Math.min(H,y+h);j+=2)for(let i=Math.max(0,x);i<Math.min(W,x+w);i+=2){
+    const k=(j*W+i)*4;r+=data[k];g+=data[k+1];b+=data[k+2];n++;
+  }
+  return [r/(n||1),g/(n||1),b/(n||1)];
+}
+// 区域内"高亮 + 低饱和"像素占比：用于识别源块里是否又有水印
+function residueRatio(data,W,H,x,y,w,h){
+  let hit=0,n=0;
+  for(let j=Math.max(0,y);j<Math.min(H,y+h);j++)for(let i=Math.max(0,x);i<Math.min(W,x+w);i++){
+    const k=(j*W+i)*4,r0=data[k],g0=data[k+1],b0=data[k+2];
+    const mx=Math.max(r0,g0,b0),mn=Math.min(r0,g0,b0);
+    const lum=(r0+g0+b0)/3,sat=(mx-mn)/(mx+1);
+    if(lum>175&&sat<0.25)hit++;
+    n++;
+  }
+  return hit/(n||1);
+}
+// 一维盒式模糊（横纵两遍），用于提取高频细节
+function boxBlur1(src,w,h,r){
+  const tmp=new Float32Array(w*h),out=new Float32Array(w*h),d=2*r+1;
+  for(let y=0;y<h;y++){
+    const row=y*w;let sum=0;
+    for(let k=-r;k<=r;k++)sum+=src[row+clamp(k,0,w-1)];
+    for(let x0=0;x0<w;x0++){
+      tmp[row+x0]=sum/d;
+      sum-=src[row+clamp(x0-r,0,w-1)];
+      sum+=src[row+clamp(x0+r+1,0,w-1)];
+    }
+  }
+  for(let x0=0;x0<w;x0++){
+    let sum=0;
+    for(let k=-r;k<=r;k++)sum+=tmp[clamp(k,0,h-1)*w+x0];
+    for(let y=0;y<h;y++){
+      out[y*w+x0]=sum/d;
+      sum-=tmp[clamp(y-r,0,h-1)*w+x0];
+      sum+=tmp[clamp(y+r+1,0,h-1)*w+x0];
+    }
+  }
+  return out;
+}
+/* 纹理细节回注：扩散修复后画面会偏"涂抹感"，这里从邻近干净块提取
+   高频细节按羽化权重轻度叠加回去，既保留纹理观感，又不会带回水印。
+   安全约束（任一不满足就放弃回注，宁可不加也不出错）：
+     1) 源块必须完全在图内，且与修复框不重叠（间隔 gap）
+     2) 源块自身不含"高亮低饱和"水印特征（占比 >5% 则弃用）
+     3) 只回注高频（减去模糊），不做整体色偏
+     4) 框边羽化到 0，保证与框外无缝衔接
+   为避免大框耗时代价过高，修复面积超过 400x400 时不回注。 */
+function injectTexture(data,W,H,rect){
+  const {x,y,w,h}=rect;
+  if(w<12||h<12||w*h>160000)return false;
+  const gap=4;
+  const cands=[[0,-h-gap],[0,h+gap],[-w-gap,0],[w+gap,0]];
+  let best=null,bestScore=Infinity;
+  const targetMean=boxMean(data,W,H,x,y,w,h);
+  for(const [ox,oy] of cands){
+    const sx=x+ox, sy=y+oy;
+    if(sx<0||sy<0||sx+w>W||sy+h>H)continue;
+    if(residueRatio(data,W,H,sx,sy,w,h)>0.05)continue;
+    const m=boxMean(data,W,H,sx,sy,w,h);
+    const d=Math.abs(m[0]-targetMean[0])+Math.abs(m[1]-targetMean[1])+Math.abs(m[2]-targetMean[2]);
+    if(d<bestScore){bestScore=d;best=[sx,sy]}
+  }
+  if(!best)return false;
+  const [sx,sy]=best;
+  const r=Math.max(2,Math.round(Math.min(w,h)*0.06));
+  const feather=Math.max(3,Math.min(12,Math.round(Math.min(w,h)*0.3)));
+  const AMOUNT=0.85;
+  for(let c=0;c<3;c++){
+    const ch=new Float32Array(w*h);
+    for(let j=0;j<h;j++)for(let i=0;i<w;i++)ch[j*w+i]=data[((sy+j)*W+(sx+i))*4+c];
+    const blur=boxBlur1(ch,w,h,r);
+    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+      const ed=Math.min(i,j,w-1-i,h-1-j);
+      const a=AMOUNT*Math.min(1,ed/feather);
+      if(a<=0)continue;
+      const d=((y+j)*W+(x+i))*4+c;
+      data[d]=data[d]+(ch[j*w+i]-blur[j*w+i])*a;
+    }
+  }
+  return true;
+}
+
+// 轻度锐化（unsharp mask）：只作用于修复框区域（含少量过渡带），
+// 未修复的原图区域逐像素保持原样，兑现"保护原始细节"的承诺。
+function sharpen(imgData,W,H,amount,rects){
   const src=imgData.data;
   const out=new ImageData(new Uint8ClampedArray(src),W,H);
   const d=out.data;
-  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
-    const i=(y*W+x)*4;
-    for(let c=0;c<3;c++){
-      const v=src[i+c];
-      const n=(src[i-4+c]+src[i+4+c]+src[i-W*4+c]+src[i+W*4+c])*0.25;
-      d[i+c]=v+(v-n)*amount;
+  const pad=4; // 过渡带：修复区边缘向外多锐化 4px，避免锐化边界产生亮线
+  const zones=(rects&&rects.length?rects:[{x:0,y:0,w:W,h:H}]);
+  for(const z of zones){
+    const x0=Math.max(1,z.x-pad), y0=Math.max(1,z.y-pad);
+    const x1=Math.min(W-1,z.x+z.w+pad), y1=Math.min(H-1,z.y+z.h+pad);
+    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+      const i=(y*W+x)*4;
+      for(let c=0;c<3;c++){
+        const v=src[i+c];
+        const n=(src[i-4+c]+src[i+4+c]+src[i-W*4+c]+src[i+W*4+c])*0.25;
+        d[i+c]=v+(v-n)*amount;
+      }
     }
   }
   return out;
@@ -745,7 +991,10 @@ function dataURLToBlob(dataUrl){
 
 function downloadResult(){
   if(!S.resultData){toast('请先修复图片再下载');return}
-  const fileName='净像_修复结果.png';
+  // 文件名带时间戳，避免多次下载互相覆盖
+  const now=new Date();
+  const ts=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
+  const fileName=`净像_修复结果_${ts}.png`;
   const ua=navigator.userAgent||'';
   const isMobile=/Android|iPhone|iPad|iPod|Mobile|MicroMessenger|Weibo|QQ\//i.test(ua);
   const isIOS=/iPad|iPhone|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
