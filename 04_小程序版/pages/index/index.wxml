@@ -1,7 +1,7 @@
 <view class="page">
   <view class="hero">
     <text class="brand">净像 · 图片修复</text>
-    <text class="subtitle">框住瑕疵，一键修复。图片只在本机处理，不上传。</text>
+    <text class="subtitle">框住要去掉的目标，其余区域按背景与纹理补全。图片只在本机处理，不上传。</text>
   </view>
 
   <!-- 未选图：上传引导 -->
@@ -17,7 +17,7 @@
     <view class="card">
       <view class="card-head">
         <text class="card-title">{{processed ? '修复结果' : '框选区域'}}</text>
-        <text class="card-hint">{{processed ? '预览效果' : '在图上拖动框住要修复的区域'}}</text>
+        <text class="card-hint">{{processed ? '预览效果' : '拖动手柄缩放 · 拖动框内移动 · 空白处重画'}}</text>
       </view>
 
       <!-- 处理前：可交互画布 -->
@@ -42,21 +42,35 @@
 
     <!-- 处理结果操作 -->
     <view class="card" wx:if="{{processed}}">
+      <text class="elapsed">{{elapsedText}}</text>
       <button class="btn-primary" bindtap="saveResult">保存到相册</button>
-      <button class="btn-ghost" bindtap="reset">处理下一张</button>
+      <button class="btn-ghost" bindtap="nextImage">换下一张照片</button>
+      <button class="btn-ghost" bindtap="reset">重新选图</button>
     </view>
 
     <!-- 设置面板 -->
     <view class="card" wx:if="{{!processed}}">
-      <text class="section-label">修复方式</text>
+      <text class="section-label">修复框架（点击切换）</text>
       <view class="mode-list">
-        <view wx:for="{{modes}}" wx:key="key"
-          class="mode-item {{mode === item.key ? 'active' : ''}}"
-          data-key="{{item.key}}" bindtap="setMode">
+        <view wx:for="{{frameworks}}" wx:key="key"
+          class="mode-item {{framework === item.key ? 'active' : ''}}"
+          data-key="{{item.key}}" bindtap="setFramework">
           <text>{{item.label}}</text>
+          <text class="mode-tag" wx:if="{{item.tag}}">{{item.tag}}</text>
         </view>
       </view>
-      <text class="mode-desc">{{modeDesc[mode]}}</text>
+      <text class="mode-desc">{{frameworkDesc[framework]}}</text>
+
+      <!-- 提示词 -->
+      <view class="prompt-head">
+        <text class="section-label">提示词（可选）</text>
+        <text class="prompt-example-btn" catchtap="useExamplePrompt">用示例</text>
+      </view>
+      <textarea class="prompt-input" value="{{promptText}}" bindinput="onPromptInput"
+        maxlength="300" auto-height show-confirm-bar="{{false}}"
+        placeholder="描述框住的目标和补全依据，例如：去掉框住的蓝色包，其余按背景和人物衣物补全" />
+      <view class="prompt-intent" wx:if="{{promptIntent}}">{{promptIntent}}</view>
+      <view class="prompt-note">仅对框选区域生效；框外像素不做任何改动。</view>
 
       <view class="auth-row" bindtap="toggleAuth">
         <view class="checkbox {{authorized ? 'checked' : ''}}">{{authorized ? '✓' : ''}}</view>
@@ -72,7 +86,7 @@
 
   <view class="footer">
     <text class="privacy-link" bindtap="goPrivacy">用户协议与隐私政策</text>
-    <text>净像 · 图片修复 v1.0 · 全程本地处理</text>
+    <text>净像 · 图片修复 v1.1 · 全程本地处理</text>
   </view>
 
   <!-- 隐藏离屏画布：老基础库（无 createOffscreenCanvas）时的修复兜底 -->

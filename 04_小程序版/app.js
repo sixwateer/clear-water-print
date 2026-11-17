@@ -1,7 +1,7 @@
 App({
   globalData: {
     appName: '净像 · 图片修复',
-    version: '1.0.0',
+    version: '1.1.0',
     // 算法参数（集中管理，便于修改）
     algo: {
       smartIterations: 240,   // 智能修复迭代次数

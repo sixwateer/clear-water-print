@@ -63,8 +63,10 @@ D:\去水印\
 │
 ├── 04_小程序版\                     【版本3】微信小程序（原生）
 │   ├── app.js / app.json / app.wxss
-│   ├── pages\index\                首页（选图/框选/修复/保存）
-│   ├── utils\inpaint.js            修复算法
+│   ├── pages\index\                首页（选图/框选/框架/提示词/修复/换图）
+│   ├── utils\inpaint.js            修复算法（含严格框内 repairStrict）
+│   ├── utils\prompt.js              提示词意图解析
+│   ├── tests\test_new_features.js  9 项回归测试
 │   └── README.md                   运行与替换说明
 │
 ├── 05_后端引擎\                     可选：FastAPI + 双引擎融合服务
@@ -117,7 +119,7 @@ python server.py
 |---|---|---|
 | HTML 普通版算法 | `node run.js`（从交付 HTML 抽取真实函数在 Node 执行） | **18/18** 断言通过（6 场景 × 3 模式） |
 | HTML 普通版页面 | 无头浏览器跑完整流程（选图→框选→三模式→三档→整图框） | **10/10** 端到端通过 |
-| 小程序版 | JS 语法检查 + JSON 校验 + 真实尺寸算法验证 | 通过（修复区与背景色差 < 5） |
+| 小程序版 | `node tests/test_new_features.js`（框架/提示词/手势/严格框内） | **9/9** 通过 |
 | 后端核心流程 | `python tests/test_orchestrator.py` | **11/11** 通过 |
 | 后端边界与异常 | `python tests/test_api_robustness.py` | **19/19** 通过 |
 

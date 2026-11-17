@@ -1,6 +1,13 @@
 const inpaint = require('../../utils/inpaint.js');
+const promptUtil = require('../../utils/prompt.js');
 
 const app = getApp();
+
+// 触摸交互常量（CSS 像素；画布用 dpr 缩放绘制，触摸坐标也是 CSS 像素，两者一致）
+const HIT = 18;       // 手柄命中半径，手指友好
+const MIN_BOX = 12;   // 选框最小边长
+
+function clamp(v, lo, hi) { return Math.max(lo, Math.min(hi, v)); }
 
 Page({
   data: {
@@ -16,18 +23,26 @@ Page({
     resultPath: '',
     processed: false,
     busy: false,
-    // 设置
-    mode: 'smart',
-    modeDesc: {
-      smart: '智能修复：根据水印四周颜色向内推算，纯色/渐变背景近乎无痕（推荐）',
-      average: '快速填充：取边缘颜色平铺，适合面积很小、背景单一的水印',
-      texture: '纹理修复：对木纹、草地等纹理背景整框扩散重建，彻底去除文字、不留残影'
-    },
-    modes: [
-      { key: 'smart', label: '智能修复' },
-      { key: 'average', label: '快速填充' },
-      { key: 'texture', label: '纹理修复' }
+    elapsedText: '',
+    // 修复框架（可切换）
+    framework: 'smart',
+    frameworks: [
+      { key: 'smart', label: '智能扩散', tag: '推荐' },
+      { key: 'texture', label: '纹理重建', tag: '衣物/木纹' },
+      { key: 'average', label: '快速填充', tag: '最快' },
+      { key: 'prompt', label: '提示词引导', tag: '按描述' }
     ],
+    frameworkDesc: {
+      smart: '智能扩散：依据框外背景颜色向内推算，纯色/渐变背景近乎无痕',
+      texture: '纹理重建：扩散重建后回注邻近衣物/木纹高频，纹理背景不糊成平色',
+      average: '快速填充：取边缘平均色平铺，适合面积很小、背景单一的目标',
+      prompt: '提示词引导：按你输入的描述自动选择框架；未写提示词时用智能扩散'
+    },
+    // 提示词
+    promptText: '',
+    promptExample: promptUtil.EXAMPLE,
+    promptIntent: '',
+    // 合规
     authorized: false,
     compliance: ''
   },
@@ -86,6 +101,13 @@ Page({
     }
   },
 
+  // 换下一张照片：重新选图，但保留框架、提示词与授权设置
+  nextImage: function () {
+    this._img = null; // 强制重建画布图像缓存
+    this.chooseImage();
+    wx.showToast({ title: '选择下一张照片', icon: 'none' });
+  },
+
   // 读取图片信息并加载到画布
   _loadImage: function (path) {
     const that = this;
@@ -99,6 +121,8 @@ Page({
         that._scale = scale;
         that._originW = info.width;
         that._originH = info.height;
+        that._img = null;      // 新图必须重建缓存
+        that._preview = null;
         that.setData({
           imagePath: path,
           displayW: dw,
@@ -106,7 +130,8 @@ Page({
           hasImage: true,
           processed: false,
           box: null,
-          resultPath: ''
+          resultPath: '',
+          elapsedText: ''
         }, function () {
           that._drawBase();
         });
@@ -117,7 +142,55 @@ Page({
     });
   },
 
-  // 画原图 + 框（基础 canvas 2d 绘制）
+  // 8 个缩放手柄的位置（显示坐标）
+  _handles: function (b) {
+    const x = b.x, y = b.y, w = b.w, h = b.h, cx = x + w / 2, cy = y + h / 2;
+    return {
+      nw: { x: x, y: y }, n: { x: cx, y: y }, ne: { x: x + w, y: y },
+      e: { x: x + w, y: cy }, se: { x: x + w, y: y + h }, s: { x: cx, y: y + h },
+      sw: { x: x, y: y + h }, w: { x: x, y: cy }
+    };
+  },
+
+  _pickHandle: function (p) {
+    const b = this.data.box;
+    if (!b) return null;
+    const hs = this._handles(b);
+    for (const k in hs) {
+      if (Math.abs(p.x - hs[k].x) <= HIT && Math.abs(p.y - hs[k].y) <= HIT) return k;
+    }
+    return null;
+  },
+
+  _inBox: function (p, b) {
+    return b && p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h;
+  },
+
+  // 画原图 + 框 + 8 个手柄。图像对象缓存，拖动时只重绘不重新解码
+  _paint: function (ctx, b, dpr) {
+    const W = this.data.displayW, H = this.data.displayH;
+    ctx.clearRect(0, 0, W, H);
+    if (this._img) ctx.drawImage(this._img, 0, 0, W, H);
+    if (!b) return;
+    ctx.strokeStyle = '#0F9E8E';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([6, 4]);
+    ctx.strokeRect(b.x, b.y, b.w, b.h);
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(15,158,142,0.12)';
+    ctx.fillRect(b.x, b.y, b.w, b.h);
+    // 手柄：白底绿边，拖动手柄缩放；拖框内部移动
+    const hs = this._handles(b);
+    for (const k in hs) {
+      const q = hs[k];
+      ctx.fillStyle = '#fff';
+      ctx.strokeStyle = '#0F9E8E';
+      ctx.lineWidth = 1.5;
+      ctx.fillRect(q.x - 4, q.y - 4, 8, 8);
+      ctx.strokeRect(q.x - 4, q.y - 4, 8, 8);
+    }
+  },
+
   _drawBase: function (box) {
     const that = this;
     const query = wx.createSelectorQuery().in(this);
@@ -125,75 +198,120 @@ Page({
     query.select('#stage').fields({ node: true, size: true, rect: true }).exec(function (res) {
       const canvas = res[0] && res[0].node;
       if (!canvas) return;
-      // 缓存画布屏幕位置（触摸事件仅提供 clientX/clientY 时的兜底）
       that._rect = { left: res[0].left || 0, top: res[0].top || 0 };
       const ctx = canvas.getContext('2d');
       const dpr = that._getDpr();
       canvas.width = that.data.displayW * dpr;
       canvas.height = that.data.displayH * dpr;
       ctx.scale(dpr, dpr);
-      ctx.clearRect(0, 0, that.data.displayW, that.data.displayH);
+      const b = box === undefined ? that.data.box : box;
+      if (that._img && that._imgSrc === that.data.imagePath) {
+        that._paint(ctx, b, dpr);
+        return;
+      }
       const img = canvas.createImage();
       img.onload = function () {
-        ctx.drawImage(img, 0, 0, that.data.displayW, that.data.displayH);
-        const b = box || that.data.box;
-        if (b) {
-          ctx.strokeStyle = '#0F9E8E';
-          ctx.lineWidth = 2;
-          ctx.setLineDash([6, 4]);
-          ctx.strokeRect(b.x, b.y, b.w, b.h);
-          ctx.fillStyle = 'rgba(15,158,142,0.12)';
-          ctx.fillRect(b.x, b.y, b.w, b.h);
-        }
+        that._img = img;
+        that._imgSrc = that.data.imagePath;
+        that._paint(ctx, b || that.data.box, dpr);
       };
       img.src = that.data.imagePath;
     });
   },
 
-  // 触摸开始
+  // 触摸开始：优先手柄 → 框内移动 → 空白画新框
   onTouchStart: function (e) {
-    if (!this.data.hasImage || this.data.processed) return;
+    if (!this.data.hasImage || this.data.processed || this.data.busy) return;
     const t = this._touchPos(e.touches && e.touches[0]);
-    // 钳制到画布范围内，保证框选坐标合法
-    this._sx = Math.max(0, Math.min(t.x, this.data.displayW));
-    this._sy = Math.max(0, Math.min(t.y, this.data.displayH));
+    const p = {
+      x: clamp(t.x, 0, this.data.displayW),
+      y: clamp(t.y, 0, this.data.displayH)
+    };
+    const b = this.data.box;
+    const handle = this._pickHandle(p);
+    if (handle) {
+      this._action = 'resize';
+      this._handle = handle;
+      this._orig = Object.assign({}, b);
+      this._preview = Object.assign({}, b);
+      return;
+    }
+    if (this._inBox(p, b)) {
+      this._action = 'move';
+      this._orig = Object.assign({}, b);
+      this._start = p;
+      this._preview = Object.assign({}, b);
+      return;
+    }
+    this._action = 'draw';
+    this._start = p;
+    this._preview = { x: p.x, y: p.y, w: 0, h: 0 };
     this.setData({ drawing: true });
   },
 
-  // 触摸移动
   onTouchMove: function (e) {
-    if (!this.data.drawing) return;
-    const t = this._touchPos(e.touches[0]);
-    const x = Math.min(this._sx, t.x), y = Math.min(this._sy, t.y);
-    const w = Math.abs(t.x - this._sx), h = Math.abs(t.y - this._sy);
-    this._drawBase({ x: x, y: y, w: w, h: h });
+    if (!this._action) return;
+    const t = this._touchPos(e.touches && e.touches[0]);
+    const p = { x: t.x, y: t.y };
+    const W = this.data.displayW, H = this.data.displayH;
+
+    if (this._action === 'draw') {
+      const x1 = clamp(Math.min(this._start.x, p.x), 0, W);
+      const y1 = clamp(Math.min(this._start.y, p.y), 0, H);
+      const x2 = clamp(Math.max(this._start.x, p.x), 0, W);
+      const y2 = clamp(Math.max(this._start.y, p.y), 0, H);
+      this._preview = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+    } else if (this._action === 'move') {
+      const o = this._orig;
+      this._preview = {
+        x: clamp(o.x + p.x - this._start.x, 0, W - o.w),
+        y: clamp(o.y + p.y - this._start.y, 0, H - o.h),
+        w: o.w, h: o.h
+      };
+    } else if (this._action === 'resize') {
+      const o = this._orig, hdl = this._handle;
+      let x1 = o.x, y1 = o.y, x2 = o.x + o.w, y2 = o.y + o.h;
+      if (hdl.indexOf('w') >= 0) x1 = clamp(p.x, 0, x2 - MIN_BOX);
+      if (hdl.indexOf('e') >= 0) x2 = clamp(p.x, x1 + MIN_BOX, W);
+      if (hdl.indexOf('n') >= 0) y1 = clamp(p.y, 0, y2 - MIN_BOX);
+      if (hdl.indexOf('s') >= 0) y2 = clamp(p.y, y1 + MIN_BOX, H);
+      this._preview = { x: x1, y: y1, w: x2 - x1, h: y2 - y1 };
+    }
+    this._drawBase(this._preview);
   },
 
-  // 触摸结束
   onTouchEnd: function (e) {
-    if (!this.data.drawing) return;
-    const ct = e.changedTouches && e.changedTouches[0];
+    if (!this._action) return;
+    const action = this._action;
+    this._action = null;
+    this._handle = null;
+    const p = this._touchPos(e.changedTouches && e.changedTouches[0]);
+
+    if (action === 'draw') {
+      if (p) {
+        const x1 = clamp(Math.min(this._start.x, p.x), 0, this.data.displayW);
+        const y1 = clamp(Math.min(this._start.y, p.y), 0, this.data.displayH);
+        const x2 = clamp(Math.max(this._start.x, p.x), 0, this.data.displayW);
+        const y2 = clamp(Math.max(this._start.y, p.y), 0, this.data.displayH);
+        if (x2 - x1 > MIN_BOX && y2 - y1 > MIN_BOX) {
+          this._preview = { x: Math.round(x1), y: Math.round(y1), w: Math.round(x2 - x1), h: Math.round(y2 - y1) };
+        }
+      }
+    }
     this.setData({ drawing: false });
-    if (!ct) { this._drawBase(this.data.box); return; }
-    const t = this._touchPos(ct);
-    const x = Math.min(this._sx, t.x), y = Math.min(this._sy, t.y);
-    const w = Math.abs(t.x - this._sx), h = Math.abs(t.y - this._sy);
-    // 钳制到画布内，避免手指拖出画布产生负坐标框
-    const maxW = this.data.displayW, maxH = this.data.displayH;
-    const cx = Math.max(0, Math.min(x, maxW - 1));
-    const cy = Math.max(0, Math.min(y, maxH - 1));
-    const cw = Math.min(w, maxW - cx), ch = Math.min(h, maxH - cy);
-    if (cw > 8 && ch > 8) {
-      const box = { x: Math.round(cx), y: Math.round(cy), w: Math.round(cw), h: Math.round(ch) };
+    if (this._preview && this._preview.w >= MIN_BOX && this._preview.h >= MIN_BOX) {
+      const box = {
+        x: Math.round(this._preview.x), y: Math.round(this._preview.y),
+        w: Math.round(this._preview.w), h: Math.round(this._preview.h)
+      };
       this.setData({ box: box });
       this._drawBase(box);
-      wx.showToast({ title: '已框选区域', icon: 'success' });
     } else {
       this._drawBase(this.data.box);
     }
   },
 
-  // 自动框右下角（常见平台水印位置；比例贴近实际水印，配合修复时的自动外扩兜边）
+  // 自动框右下角（常见平台水印位置；配合修复时的自动外扩兜边）
   autoBox: function () {
     if (!this.data.hasImage) return;
     const bw = this.data.displayW * 0.24, bh = this.data.displayH * 0.07;
@@ -205,15 +323,15 @@ Page({
     };
     this.setData({ box: box });
     this._drawBase(box);
-    wx.showToast({ title: '已框右下角，可拖动重框微调', icon: 'none' });
+    wx.showToast({ title: '已框右下角，可拖动手柄微调', icon: 'none' });
   },
 
   clearBox: function () {
     this.setData({ box: null });
+    this._preview = null;
     this._drawBase();
   },
 
-  // 微调框大小：data-d 为每边调整像素（正=扩大，负=缩小）
   adjustBox: function (e) {
     if (!this.data.box) { wx.showToast({ title: '请先框选区域', icon: 'none' }); return; }
     const d = parseInt(e.currentTarget.dataset.d, 10) || 0;
@@ -221,14 +339,31 @@ Page({
     const x1 = Math.max(0, b.x - d), y1 = Math.max(0, b.y - d);
     const x2 = Math.min(this.data.displayW, b.x + b.w + d);
     const y2 = Math.min(this.data.displayH, b.y + b.h + d);
-    if (x2 - x1 < 10 || y2 - y1 < 10) return; // 防止缩没
+    if (x2 - x1 < MIN_BOX || y2 - y1 < MIN_BOX) return;
     const box = { x: Math.round(x1), y: Math.round(y1), w: Math.round(x2 - x1), h: Math.round(y2 - y1) };
     this.setData({ box: box });
     this._drawBase(box);
   },
 
-  setMode: function (e) {
-    this.setData({ mode: e.currentTarget.dataset.key });
+  setFramework: function (e) {
+    const key = e.currentTarget.dataset.key;
+    this.setData({ framework: key });
+    // 选提示词框架时若提示词为空，给一次友好提醒（不强制填写）
+    if (key === 'prompt' && !this.data.promptText.trim()) {
+      wx.showToast({ title: '可填写提示词，或留空用智能扩散', icon: 'none' });
+    }
+  },
+
+  onPromptInput: function (e) {
+    const text = (e.detail.value || '').slice(0, 300);
+    const info = promptUtil.parsePrompt(text);
+    this.setData({ promptText: text, promptIntent: info.intent });
+  },
+
+  useExamplePrompt: function () {
+    const text = promptUtil.EXAMPLE;
+    this.setData({ promptText: text, promptIntent: promptUtil.parsePrompt(text).intent });
+    wx.showToast({ title: '已填入示例提示词', icon: 'none' });
   },
 
   toggleAuth: function () {
@@ -240,6 +375,7 @@ Page({
     const that = this;
     if (!this.data.box) { wx.showToast({ title: '请先框选要修复的区域', icon: 'none' }); return; }
     if (!this.data.authorized) { wx.showToast({ title: '请先勾选使用确认', icon: 'none' }); return; }
+    this._t0 = Date.now();
     this.setData({ busy: true });
     wx.showLoading({ title: '修复中…' });
 
@@ -281,14 +417,24 @@ Page({
           w: Math.round(that.data.box.w * s),
           h: Math.round(that.data.box.h * s)
         }];
-        inpaint.repair(imageData, rect, that.data.mode, app.globalData.algo.smartIterations);
-        octx.putImageData(imageData, 0, 0);
 
+        // 提示词框架：按解析出的补全依据自动选择算法；其余框架直接用用户所选
+        const info = promptUtil.parsePrompt(that.data.promptText);
+        let mode = that.data.framework;
+        if (mode === 'prompt') mode = info.framework || 'smart';
+        // 严格框内：外扩只作为采样来源，框外像素一个字节都不改
+        inpaint.repairStrict(imageData, rect, mode, app.globalData.algo.smartIterations, { textureDetail: true });
+
+        octx.putImageData(imageData, 0, 0);
+        const ms = Date.now() - that._t0;
         exportFn({
           success: function (res) {
-            that.setData({ resultPath: res.tempFilePath, processed: true, busy: false });
+            that.setData({
+              resultPath: res.tempFilePath, processed: true, busy: false,
+              elapsedText: '耗时 ' + ms + ' ms · 仅修改框选区域'
+            });
             wx.hideLoading();
-            wx.showToast({ title: '修复完成', icon: 'success' });
+            wx.showToast({ title: '修复完成 · ' + ms + 'ms', icon: 'success' });
           },
           fail: function () {
             wx.hideLoading(); that.setData({ busy: false });
@@ -329,13 +475,16 @@ Page({
     });
   },
 
+  // 换下一张：只清图片与框，保留框架/提示词/授权
   reset: function () {
+    this._img = null;
+    this._preview = null;
     this.setData({
-      hasImage: false, box: null, resultPath: '', processed: false, authorized: false
+      hasImage: false, box: null, resultPath: '', processed: false, elapsedText: ''
     });
+    wx.showToast({ title: '请选择下一张照片', icon: 'none' });
   },
 
-  // 跳转用户协议与隐私政策
   goPrivacy: function () {
     wx.navigateTo({ url: '/pages/privacy/privacy' });
   }

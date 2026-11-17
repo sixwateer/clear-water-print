@@ -205,4 +205,81 @@ function repair(imageData, rects, mode, iters) {
   return imageData;
 }
 
-module.exports = { repair, laplaceFill, averageFill };
+/**
+ * 严格框内修复：只把原框范围内的像素写回，框外一个字节都不动。
+ *
+ * 现有 repair() 会把修复框外扩 3~12px 以覆盖水印的抗锯齿边缘与投影——外扩区
+ * 在这里只作为“采样来源”参与扩散，不写回原图。这样既保留去净边缘的能力，
+ * 又满足「仅对框选目标执行去除，非框选区域不变」。
+ *
+ * @param {ImageData} imageData 原始图像（会被就地修改，但仅框内）
+ * @param {Array} rects 原图像素坐标框
+ * @param {String} mode smart/average/texture
+ * @param {Number} iters 迭代次数
+ * @param {Object} opts { textureDetail: Boolean } 纹理框架是否回注邻近高频
+ */
+function repairStrict(imageData, rects, mode, iters, opts) {
+  opts = opts || {};
+  const W = imageData.width, H = imageData.height;
+  if (!rects || !rects.length) return imageData;
+  const dst = imageData.data;
+  // 在副本上跑完整修复（含外扩采样），再只把原框写回
+  const work = new Uint8ClampedArray(dst);
+  repair({ width: W, height: H, data: work }, rects, mode, iters);
+
+  if (mode === 'texture' && opts.textureDetail !== false) {
+    rects.forEach(function (r) {
+      injectTextureDetail(work, W, H, r.x, r.y, r.w, r.h);
+    });
+  }
+
+  rects.forEach(function (r) {
+    const x1 = Math.max(0, Math.round(r.x)), y1 = Math.max(0, Math.round(r.y));
+    const x2 = Math.min(W, Math.round(r.x + r.w)), y2 = Math.min(H, Math.round(r.y + r.h));
+    for (let yy = y1; yy < y2; yy++) for (let xx = x1; xx < x2; xx++) {
+      const d = (yy * W + xx) * 4;
+      dst[d] = work[d]; dst[d + 1] = work[d + 1]; dst[d + 2] = work[d + 2];
+    }
+  });
+  return imageData;
+}
+
+/**
+ * 纹理细节回注：从框外紧邻的背景/衣物行取高频，按距离衰减叠加到框内。
+ * 扩散结果是平滑的，回注高频后纹理背景不会变成一块“塑料平色”。
+ * 采样行在框外，未被修复改写，因此回注的确实是原图的背景纹理。
+ */
+function injectTextureDetail(work, W, H, x, y, w, h) {
+  x = Math.max(0, Math.round(x)); y = Math.max(0, Math.round(y));
+  w = Math.min(w, W - x); h = Math.min(h, H - y);
+  if (w < 8 || h < 8) return;
+  const top = y - 2, bottom = y + h + 1;
+  const hasTop = top >= 1, hasBottom = bottom < H - 1;
+  if (!hasTop && !hasBottom) return;
+
+  const rgb = function (row, col) {
+    if (row < 0 || row >= H) return [0, 0, 0];
+    const q = (row * W + Math.max(0, Math.min(W - 1, col))) * 4;
+    return [work[q], work[q + 1], work[q + 2]];
+  };
+
+  for (let jj = 0; jj < h; jj++) for (let ii = 0; ii < w; ii++) {
+    // 上半用上方背景行，下半用下方背景行；哪边没有就用另一边
+    const useTop = jj < h / 2 ? hasTop : (!hasBottom && hasTop);
+    const sy = useTop ? top : bottom;
+    if (sy < 0 || sy >= H) continue;
+    const xx = x + ii;
+    const c = rgb(sy, xx), l = rgb(sy, xx - 2), r = rgb(sy, xx + 2);
+    const hf = [c[0] - (l[0] + r[0]) / 2, c[1] - (l[1] + r[1]) / 2, c[2] - (l[2] + r[2]) / 2];
+    // 离采样边越远衰减越强，避免中心纹理过冲
+    const dist = useTop ? jj : (h - 1 - jj);
+    const decay = Math.max(0, 1 - dist / (h * 0.65));
+    const wt = 0.4 * decay;
+    const d = ((y + jj) * W + xx) * 4;
+    work[d] = Math.max(0, Math.min(255, work[d] + hf[0] * wt));
+    work[d + 1] = Math.max(0, Math.min(255, work[d + 1] + hf[1] * wt));
+    work[d + 2] = Math.max(0, Math.min(255, work[d + 2] + hf[2] * wt));
+  }
+}
+
+module.exports = { repair, repairStrict, injectTextureDetail, laplaceFill, averageFill };
