@@ -218,14 +218,14 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
           <div class="canvas-wrap"><canvas id="stage"></canvas></div>
           <div class="toolbar">
             <button class="tool active" id="toolRect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>矩形框选</button>
-            <button class="tool" id="toolLine" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17l5-8 5 5 4-7 4 4"/></svg>线条框选</button>
+            <button class="tool" id="toolLine" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17l5-8 5 5 4-7 4 4"/></svg>轮廓线稿</button>
             <button class="tool" id="toolAuto" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6M4 4v6M20 20h-6M20 20v-6"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>自动框右下角</button>
             <button class="tool" id="toolDel" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>删当前框</button>
             <button class="tool" id="toolClear" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除全部</button>
             <button class="tool" id="toolReselect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>更换图片</button>
-            <span class="tool-hint">最多三个框 · 拖动/手柄微调 · 线条框=自定义</span>
+            <span class="tool-hint">最多三个区域 · 矩形=去除 · 轮廓=线稿描边</span>
           </div>
-          <div class="box-readout" id="boxReadout">拖拽画矩形框，或选「线条框选」沿目标画线；最多 3 个框</div>
+          <div class="box-readout" id="boxReadout">拖拽画矩形框去除；或选「轮廓线稿」沿目标画一圈，区域内转线条画</div>
         </div>
       </div>
     </div>
@@ -452,8 +452,8 @@ function resetImageState(){
 }
 
 /* ============================================================
-   画布绘制与选框交互（最多 3 个框 + 矩形/线条框选 + 拖拽移动 + 8向缩放手柄）
-   - 矩形工具：拖拽画框；线条工具：按住鼠标沿目标画线，松开取轨迹外接矩形
+   画布绘制与选框交互（最多 3 个区域 + 矩形去除 / 闭合轮廓线稿 + 整体移动）
+   - 矩形工具：拖拽画框做去除；轮廓工具：按住鼠标沿目标画一圈，按闭合轨迹做线稿描边
     作为「自定义框」（紫色标注），适合勾勒包、挂牌等不规则目标
    - 框内按下=移动，手柄按下=缩放，空白按下=新增框；满 3 个时替换当前框
    - 坐标统一为画布显示坐标，进入算法时再除以 S.scale 回到原图像素
@@ -468,7 +468,9 @@ function draw(){
   ctx.drawImage(baseImage,0,0,stage.width,stage.height);
   const k=pxK(),hs=Math.max(HANDLE,Math.round(11*k)),lw=Math.max(2,Math.round(1.6*k));
   S.rects.forEach((r,i)=>{
-    drawBox(r,undefined,undefined,(r.kind==='line'?'自定义':'框')+(i+1));
+    // 线稿轮廓：只画用户实际画的闭合线条，不画外接矩形块、不提供缩放手柄
+    if(r.points&&r.points.length>2){drawOutline(r,r.points,i===S.activeBox,i);return}
+    drawBox(r,undefined,undefined,'框'+(i+1));
     if(i!==S.activeBox)return;
     for(const h of HANDLES){
       const p=handlePos(r,h);
@@ -503,6 +505,24 @@ function drawBox(r,stroke,fill,label){
   ctx.fillStyle='#fff';ctx.fillText(label,lx,ly);ctx.restore();
 }
 function normRect(a,b){return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(b.x-a.x),h:Math.abs(b.y-a.y)}}
+// 线稿轮廓的绘制：严格沿用户轨迹闭合，保持线条形态（外接矩形只用于交互命中，不画出来）
+function drawOutline(r,pts,active,index){
+  const lw=Math.max(2,Math.round(1.8*pxK()));
+  ctx.save();
+  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
+  ctx.closePath();
+  ctx.strokeStyle=active?'rgba(91,110,225,1)':'rgba(15,158,142,.95)';
+  ctx.lineWidth=lw;ctx.setLineDash(active?[]:[6,4]);ctx.stroke();
+  ctx.fillStyle=active?'rgba(91,110,225,.10)':'rgba(15,158,142,.06)';ctx.fill();
+  ctx.setLineDash([]);
+  ctx.font='11px "Microsoft YaHei",sans-serif';
+  const label='轮廓'+(index+1),tw=ctx.measureText(label).width;
+  const lx=clamp(r.x+4,2,stage.width-tw-8),ly=r.y-5<12?r.y+15:r.y-5;
+  ctx.fillStyle='#5B6EE1';ctx.fillRect(lx-3,ly-11,tw+6,15);
+  ctx.fillStyle='#fff';ctx.fillText(label,lx,ly);
+  ctx.restore();
+}
 function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
 function pos(e){
   const b=stage.getBoundingClientRect();
@@ -524,11 +544,11 @@ function inBox(p,r){return p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h}
 function setCursor(c){stage.style.cursor=c}
 function updateReadout(){
   const el=$('boxReadout');if(!el)return;
-  if(!S.rects.length){el.textContent=`拖拽画矩形框，或选「线条框选」沿目标画线；最多 ${MAX_BOXES} 个框`;return}
+  if(!S.rects.length){el.textContent=`拖拽画矩形框去除；或选「轮廓线稿」沿目标画一圈，区域内转线条画`;return}
   const parts=S.rects.map((r,i)=>{
     const ox=Math.round(r.x/S.scale),oy=Math.round(r.y/S.scale);
     const ow=Math.round(r.w/S.scale),oh=Math.round(r.h/S.scale);
-    return `${r.kind==='line'?'自定义':'框'}${i+1}(${ox},${oy} ${ow}×${oh})`;
+    return r.points?`轮廓${i+1}(${r.points.length}点)`: `框${i+1}(${ox},${oy} ${ow}×${oh})`;
   });
   el.textContent=`${parts.join('　')}　|　共 ${S.rects.length}/${MAX_BOXES} 框 · 拖内部移动 · 手柄缩放 · 方向键微调`;
 }
@@ -542,7 +562,9 @@ function down(e){
   const p=pos(e);
   // 手柄优先（从后往前，上层框先命中），再判断框内移动
   for(let i=S.rects.length-1;i>=0;i--){
-    const r=S.rects[i],h=hitHandle(p,r);
+    const r=S.rects[i];
+    if(r.points)continue; // 线稿轮廓不提供手柄缩放，只能整体移动/删除重画
+    const h=hitHandle(p,r);
     if(h){S.action='resize';S.activeBox=i;S.handle=h;S.orig={...r};S.start=p;draw();return}
   }
   for(let i=S.rects.length-1;i>=0;i--){
@@ -565,9 +587,12 @@ function move(e){
   if(!S.orig)return;
   if(S.action==='move'){
     const o=S.orig;
-    S.rects[S.activeBox]={...o,
-      x:clamp(o.x+p.x-S.start.x,0,stage.width-o.w),
-      y:clamp(o.y+p.y-S.start.y,0,stage.height-o.h)};
+    const nx=clamp(o.x+p.x-S.start.x,0,stage.width-o.w);
+    const ny=clamp(o.y+p.y-S.start.y,0,stage.height-o.h);
+    const box={...o,x:nx,y:ny};
+    // 轮廓点必须随框整体平移，否则线条与命中区域会脱节
+    if(o.points)box.points=o.points.map(q=>({x:q.x+nx-o.x,y:q.y+ny-o.y}));
+    S.rects[S.activeBox]=box;
   }else if(S.action==='resize'){
     S.rects[S.activeBox]={...resizeBox(S.orig,S.handle,p),kind:S.orig.kind};
   }
@@ -586,11 +611,18 @@ function up(e){
   if(S.action==='draw'&&S.cur){
     const r=normRect(S.start,S.cur);
     if(r.w>=MIN_BOX&&r.h>=MIN_BOX)commitBox(r);
-  }else if(S.action==='line'&&S.linePts.length>1){
-    // 线条框选：取轨迹外接矩形作为自定义框，保留 kind 以便画布上区分显示
+  }else if(S.action==='line'&&S.linePts.length>2){
+    // 闭合轮廓：保留轨迹点本身（不再取外接矩形当处理区）。
+    // 首尾距离大于阈值时自动闭合，保证"包围关系"成立。
+    const pts=S.linePts.map(q=>({x:q.x,y:q.y}));
+    const a=pts[0],b=pts[pts.length-1];
+    if(Math.hypot(b.x-a.x,b.y-a.y)>8)pts.push({x:a.x,y:a.y});
     let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
-    S.linePts.forEach(q=>{x1=Math.min(x1,q.x);y1=Math.min(y1,q.y);x2=Math.max(x2,q.x);y2=Math.max(y2,q.y)});
-    if(x2-x1>=MIN_BOX&&y2-y1>=MIN_BOX)commitBox({x:x1,y:y1,w:x2-x1,h:y2-y1,kind:'line'});
+    pts.forEach(q=>{x1=Math.min(x1,q.x);y1=Math.min(y1,q.y);x2=Math.max(x2,q.x);y2=Math.max(y2,q.y)});
+    if(x2-x1>=MIN_BOX&&y2-y1>=MIN_BOX){
+      // x/y/w/h 仅用于命中检测与坐标换算，真正处理区域由 points 决定
+      commitBox({x:x1,y:y1,w:x2-x1,h:y2-y1,kind:'line',points:pts});
+    }
   }
   S.action=null;S.cur=null;S.orig=null;S.handle=null;S.linePts=[];
   setCursor('crosshair');draw();checkReady();updateReadout();
@@ -621,7 +653,7 @@ function setTool(t){
   S.tool=t;
   $('toolRect').classList.toggle('active',t==='rect');
   $('toolLine').classList.toggle('active',t==='line');
-  toast(t==='line'?'线条框选：按住鼠标沿目标画线，松开生成自定义框':'矩形框选：拖拽画框，最多 3 个');
+  toast(t==='line'?'轮廓线稿：沿目标画一圈，区域内转为黑白线条画':'矩形框选：拖拽画框做去除，最多 3 个');
 }
 $('toolRect').onclick=()=>setTool('rect');
 $('toolLine').onclick=()=>setTool('line');
@@ -764,6 +796,11 @@ function repair(){
   const repairedRects=[];   // 记录实际修复区域（含外扩），供局部锐化使用
 
   S.rects.forEach(r=>{
+    // 闭合轮廓：走线稿描边，不做去除/填充，也不参与矩形锐化
+    if(r.points&&r.points.length>2){
+      sketchRegion(data,W,H,r.points.map(q=>({x:q.x/S.scale,y:q.y/S.scale})));
+      return;
+    }
     // 画布坐标 -> 原图坐标
     let x=Math.round(r.x/S.scale),y=Math.round(r.y/S.scale);
     let w=Math.round(r.w/S.scale),h=Math.round(r.h/S.scale);
@@ -797,6 +834,47 @@ function repair(){
     cx.putImageData(imgData,0,0);
   }
   return c.toDataURL('image/png');
+}
+
+// 线稿描边：只在闭合轮廓内做 Sobel 边缘检测 + 二值化，输出白底黑线，
+// 轮廓外像素一个字节都不动。输入/输出都保持线条形态，不生成填充块。
+function sketchRegion(data,W,H,points){
+  if(!points||points.length<3)return;
+  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+  points.forEach(q=>{x1=Math.min(x1,q.x);y1=Math.min(y1,q.y);x2=Math.max(x2,q.x);y2=Math.max(y2,q.y)});
+  x1=Math.max(0,Math.floor(x1)-2);y1=Math.max(0,Math.floor(y1)-2);
+  x2=Math.min(W,Math.ceil(x2)+2);y2=Math.min(H,Math.ceil(y2)+2);
+  const rw=x2-x1,rh=y2-y1;
+  if(rw<3||rh<3)return;
+  const gray=new Float32Array(rw*rh);
+  for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+    const k=((y1+j)*W+(x1+i))*4;
+    gray[j*rw+i]=0.299*data[k]+0.587*data[k+1]+0.114*data[k+2];
+  }
+  // 射线法：判断像素中心是否落在闭合轮廓内
+  function inside(px,py){
+    let c=false;
+    for(let i=0,j=points.length-1;i<points.length;j=i++){
+      const xi=points[i].x,yi=points[i].y,xj=points[j].x,yj=points[j].y;
+      if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))c=!c;
+    }
+    return c;
+  }
+  const TH=52;
+  for(let j=1;j<rh-1;j++)for(let i=1;i<rw-1;i++){
+    const gx=x1+i,gy=y1+j;
+    if(!inside(gx+0.5,gy+0.5))continue;
+    const k=j*rw+i;
+    const tl=gray[k-rw-1],tc=gray[k-rw],tr=gray[k-rw+1];
+    const ml=gray[k-1],mr=gray[k+1];
+    const bl=gray[k+rw-1],bc=gray[k+rw],br=gray[k+rw+1];
+    const sx=-tl-2*ml-bl+tr+2*mr+br;
+    const sy=-tl-2*tc-tr+bl+2*bc+br;
+    const mag=Math.sqrt(sx*sx+sy*sy);
+    const v=mag>TH?28:250; // 黑线 / 白底，保持线条状表现
+    const d=(gy*W+gx)*4;
+    data[d]=v;data[d+1]=v;data[d+2]=v;
+  }
 }
 
 // 方式1：快速平均填充

@@ -56,10 +56,30 @@ TEST = r'''
       S.mode='smart';S.iter=2;
       S.rects=[{x:100,y:100,w:40,h:30},{x:200,y:200,w:40,h:30},{x:300,y:300,w:40,h:30}];
       var multi=repair();ok('三框修复',multi.length>1000);
-      // 8) 整图框（极端：无有效边界）
+      // 8) 闭合轮廓：轨迹点保留且首尾自动闭合，不再转成外接矩形
+      S.rects=[];S.activeBox=0;S.tool='line';
+      S.action='line';
+      S.linePts=[{x:10,y:10},{x:50,y:10},{x:50,y:50},{x:45,y:48}];
+      up(null);
+      var sk=S.rects[0];
+      ok('轮廓自动闭合',!!(sk&&sk.points&&sk.points.length===5&&sk.kind==='line'),
+         sk?(sk.kind+'/'+sk.points.length):'none');
+      // 9) 线稿算法：轮廓内转黑线白底，轮廓外逐字节不变
+      var W=100,H=100,dd=new Uint8ClampedArray(W*H*4);
+      for(var y=0;y<H;y++)for(var x=0;x<W;x++){
+        var ii=(y*W+x)*4,v=(x<50)?20:220;
+        dd[ii]=dd[ii+1]=dd[ii+2]=v;dd[ii+3]=255;
+      }
+      var snap=new Uint8ClampedArray(dd);
+      sketchRegion(dd,W,H,[{x:20,y:20},{x:80,y:20},{x:80,y:80},{x:20,y:80},{x:20,y:20}]);
+      var outside=dd[(5*W+5)*4]===snap[(5*W+5)*4];
+      var white=dd[(40*W+40)*4]===250;
+      var black=dd[(40*W+50)*4]===28;
+      ok('线稿描边',outside&&white&&black,'外'+outside+' 白'+white+' 线'+black);
+      // 10) 整图框（极端：无有效边界）
       S.rects=[{x:0,y:0,w:stage.width,h:stage.height}];S.activeBox=0;
       var u0=repair(); ok('整图框',u0.length>1000);
-      // 9) 三模式
+      // 11) 三模式
       var times=[];
       ['smart','average','texture'].forEach(function(m){
         S.mode=m;S.iter=2;S.rects=[{x:528,y:438,w:180,h:64}];S.activeBox=0;

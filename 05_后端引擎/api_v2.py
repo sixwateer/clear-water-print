@@ -17,7 +17,7 @@ import time
 
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse, Response
-from PIL import Image
+from PIL import Image, ImageDraw
 
 try:
     import numpy as np
@@ -107,6 +107,62 @@ def resolve_framework(framework: str, prompt: str) -> tuple[str, dict]:
         "smart" if chosen == "prompt" else chosen
     )
     return actual, info
+
+
+def parse_polygons(polygons: str) -> tuple[list[list[tuple[float, float]]], str | None]:
+    """解析闭合轮廓：JSON 数组的数组，如 [[[x,y],[x,y],[x,y]]]。"""
+    if not polygons or not polygons.strip():
+        return [], None
+    try:
+        data = json.loads(polygons)
+    except (json.JSONDecodeError, TypeError):
+        return [], "polygon 不是合法 JSON"
+    if not isinstance(data, list):
+        return [], "polygon 必须是数组"
+    out: list[list[tuple[float, float]]] = []
+    for i, poly in enumerate(data):
+        if not isinstance(poly, list) or len(poly) < 3:
+            return [], f"polygon[{i}] 至少需要 3 个点"
+        pts = []
+        for j, p in enumerate(poly):
+            if not isinstance(p, (list, tuple)) or len(p) < 2:
+                return [], f"polygon[{i}][{j}] 必须是 [x,y]"
+            x, y = p[0], p[1]
+            if (isinstance(x, bool) or isinstance(y, bool)
+                    or not isinstance(x, (int, float)) or not isinstance(y, (int, float))
+                    or not math.isfinite(x) or not math.isfinite(y)):
+                return [], f"polygon[{i}][{j}] 坐标必须是有限数值"
+            pts.append((float(x), float(y)))
+        if pts[0] != pts[-1]:
+            pts.append(pts[0])  # 自动闭合，保证"包围关系"
+        out.append(pts)
+    return out, None
+
+
+def sketch_polygon(image: Image.Image, polygons: list[list[tuple[float, float]]]) -> Image.Image:
+    """闭合轮廓内做线稿描边（Sobel + 二值化），输出黑线白底；轮廓外逐像素不变。"""
+    if np is None:
+        raise RuntimeError("线稿效果需要 numpy")
+    if not polygons:
+        return image
+    src = np.asarray(image.convert("RGB")).copy()
+    H, W = src.shape[:2]
+    gray = 0.299 * src[:, :, 0] + 0.587 * src[:, :, 1] + 0.114 * src[:, :, 2]
+    gx = np.zeros_like(gray)
+    gy = np.zeros_like(gray)
+    gx[1:-1, 1:-1] = (-gray[:-2, :-2] - 2 * gray[1:-1, :-2] - gray[2:, :-2]
+                      + gray[:-2, 2:] + 2 * gray[1:-1, 2:] + gray[2:, 2:])
+    gy[1:-1, 1:-1] = (-gray[:-2, :-2] - 2 * gray[:-2, 1:-1] - gray[:-2, 2:]
+                      + gray[2:, :-2] + 2 * gray[2:, 1:-1] + gray[2:, 2:])
+    line = np.sqrt(gx * gx + gy * gy) > 52
+    out = src.copy()
+    for pts in polygons:
+        mask_img = Image.new("L", (W, H), 0)
+        ImageDraw.Draw(mask_img).polygon([(int(x), int(y)) for x, y in pts], fill=255)
+        mask = np.asarray(mask_img) > 127
+        out[mask & line] = (28, 28, 28)
+        out[mask & ~line] = (250, 250, 250)
+    return Image.fromarray(out, "RGB")
 
 
 def compose_strict(original: Image.Image, repaired: Image.Image, rects: list[dict]) -> Image.Image:
@@ -340,6 +396,8 @@ async def process_fusion(
     framework: str = Form("smart", description="smart | texture | average | prompt"),
     prompt: str = Form("", description="提示词：描述框住的目标与补全依据"),
     strict_box: bool = Form(True, description="仅把框内修复像素写回原图，框外保持不变"),
+    effect: str = Form("inpaint", description="inpaint | sketch"),
+    polygon: str = Form("", description="sketch 用：闭合轮廓点 JSON [[[x,y],...]]"),
 ):
     """双引擎融合处理：返回修复图片二进制 + 元数据响应头。"""
     ctx, err = await _build_context(
@@ -348,6 +406,41 @@ async def process_fusion(
     )
     if err:
         return err
+
+    # 线稿描边：不走进去除/修复流水线，直接对闭合轮廓内做 Sobel 描边
+    if effect == "sketch":
+        polys, poly_err = parse_polygons(polygon)
+        if poly_err:
+            return JSONResponse({"error": poly_err}, status_code=400)
+        if not polys:
+            return JSONResponse({"error": "sketch 效果需提供 polygon 闭合轮廓"}, status_code=400)
+        if ctx.image is None:
+            return JSONResponse({"error": "sketch 效果需上传原图"}, status_code=400)
+        t0 = time.time()
+        try:
+            sketched = sketch_polygon(ctx.image, polys)
+        except Exception as e:
+            return JSONResponse({"error": f"线稿处理失败: {e}"}, status_code=500)
+        elapsed = (time.time() - t0) * 1000
+        _remember_task(ctx.task_id, {
+            "status": "succeeded", "effect": "sketch", "elapsed_ms": elapsed,
+        })
+        return Response(
+            content=_encode_png(sketched),
+            media_type="image/png",
+            headers={
+                "X-Task-Id": ctx.task_id,
+                "X-Effect-Used": "sketch",
+                "X-Framework-Used": "",
+                "X-Prompt-Intent": json.dumps("", ensure_ascii=True),
+                "X-Strict-Box": "true",
+                "X-Elapsed-Ms": str(round(elapsed, 1)),
+                "Access-Control-Expose-Headers": (
+                    "X-Task-Id,X-Engine-Used,X-Lossless,X-Elapsed-Ms,X-Trace,"
+                    "X-Framework-Used,X-Prompt-Intent,X-Strict-Box,X-Effect-Used"
+                ),
+            },
+        )
 
     _TASKS[ctx.task_id]["status"] = "processing"
     try:
@@ -398,6 +491,7 @@ async def process_fusion(
         media_type="image/png",
         headers={
             "X-Task-Id": result.task_id,
+            "X-Effect-Used": "inpaint",
             "X-Engine-Used": result.engine_used or "",
             "X-Lossless": str(result.lossless).lower(),
             "X-Elapsed-Ms": str(result.elapsed_ms),
@@ -407,7 +501,7 @@ async def process_fusion(
             "X-Strict-Box": str(strict_applied).lower(),
             "Access-Control-Expose-Headers": (
                 "X-Task-Id,X-Engine-Used,X-Lossless,X-Elapsed-Ms,X-Trace,"
-                "X-Framework-Used,X-Prompt-Intent,X-Strict-Box"
+                "X-Framework-Used,X-Prompt-Intent,X-Strict-Box,X-Effect-Used"
             ),
         },
     )

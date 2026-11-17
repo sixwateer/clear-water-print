@@ -26,9 +26,10 @@ const code = m[1] + '\n;globalThis.__S=S;globalThis.__FW=FRAMEWORKS;globalThis._
 new Function(code);
 
 function makeEl(id) {
-  const ctxMock = new Proxy({}, { get: (t, k) => (k in t ? t[k] : () => {}) });
+  const ctxMock = new Proxy({}, { get: (t, k) => (k === 'measureText' ? function () { return { width: 40 }; } : (k in t ? t[k] : () => {})) });
   return {
     id, style: {}, dataset: {}, value: '', textContent: '', innerHTML: '',
+    width: 720, height: 480,
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     addEventListener() {}, getContext() { return ctxMock; },
     getBoundingClientRect() { return { left: 0, top: 0, width: 720, height: 480 }; },
@@ -40,6 +41,7 @@ function makeEl(id) {
 const els = {};
 const captured = {};
 function buildContext() {
+  Object.keys(els).forEach(function (k) { delete els[k]; }); // 每次用全新 mock 元素
   const document = {
     getElementById(id) { return els[id] || (els[id] = makeEl(id)); },
     querySelector() { return null; },
@@ -193,6 +195,31 @@ check('结果展示：对比线归位到中央（回归手柄贴左）', functio
   ctx.showResult('blob:mock', { framework: 'texture', strict: 'true', intent: '测试' });
   assert.strictEqual(els.handle.style.left, '50%');
   assert.ok(String(els.imgBefore.style.clipPath).indexOf('50%') >= 0);
+});
+
+check('轮廓线稿：保留轨迹点并自动闭合，不再取外接矩形', function () {
+  S.rects = []; S.activeBox = 0; S.tool = 'line';
+  S.action = 'line';
+  S.linePts = [{ x: 10, y: 10 }, { x: 50, y: 10 }, { x: 50, y: 50 }, { x: 45, y: 48 }];
+  ctx.up(null);
+  const r = S.rects[0];
+  assert.ok(r && r.points && r.points.length === 5, '应为 4 点 + 闭合点');
+  assert.strictEqual(r.kind, 'line');
+  assert.deepStrictEqual(r.points[0], r.points[r.points.length - 1]);
+});
+
+check('后端交互：轮廓走 sketch + polygon，矩形才走 rects', async function () {
+  S.serverOnline = true; S.file = {}; S.scale = 1; S.img = {};
+  S.rects = [{ x: 10, y: 10, w: 40, h: 40, kind: 'line', points: [
+    { x: 10, y: 10 }, { x: 50, y: 10 }, { x: 50, y: 50 }, { x: 10, y: 50 }, { x: 10, y: 10 }
+  ] }];
+  captured.rects = 'SENTINEL';
+  await ctx.callBackend();
+  assert.strictEqual(captured.effect, 'sketch');
+  const polys = JSON.parse(captured.polygon);
+  assert.strictEqual(polys.length, 1);
+  assert.strictEqual(polys[0].length, 5);
+  assert.strictEqual(captured.rects, 'SENTINEL', 'sketch 时不应提交矩形框');
 });
 
 (async function () {

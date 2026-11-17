@@ -28,6 +28,7 @@
 | 输入校验 / 异常处理 | `api_v2.py::_parse_rects`、`process_fusion` | 非法 rects 统一返回 400；处理异常兜底 500 且任务状态正确落库；任务存储有上限 |
 | 修复框架 / 提示词 | `api_v2.py::parse_prompt`、`resolve_framework` | `framework=prompt` 时按提示词解析结果自动选 smart/texture/average，规则与小程序 `utils/prompt.js` 一致 |
 | 严格框内约束 | `api_v2.py::compose_strict` | 默认把原图框外像素贴回结果图，保证「仅框选区域被修改」，source_url 场景无原图时跳过 |
+| 线稿描边 | `api_v2.py::parse_polygons`、`sketch_polygon` | `effect=sketch` 时按闭合轮廓做 Sobel 描边，输出黑线白底；响应头 `X-Effect-Used` |
 
 > 注意：前端两版（普通版 / 后端对接版）选框交互与视觉规范已保持一致；普通版纯前端即可用，后端版需先启动本服务。
 
@@ -107,6 +108,8 @@ pip install simple-lama-inpainting
 | `framework` | `smart` | `smart` / `texture` / `average` / `prompt`（按提示词自动选）；非法值回退 smart |
 | `prompt` | 空 | 描述框住的目标与补全依据；`framework=prompt` 时生效 |
 | `strict_box` | `true` | 仅把框内修复像素写回原图，框外逐字节不变 |
+| `effect` | `inpaint` | `inpaint`=去除修复；`sketch`=闭合轮廓线稿描边 |
+| `polygon` | 空 | `sketch` 用：闭合轮廓点 JSON `[[[x,y],...]]`，至少 3 点，首尾自动闭合 |
 
 新增响应头：`X-Framework-Used`（实际使用的框架）、`X-Prompt-Intent`（意图摘要，JSON 转义）、
 `X-Strict-Box`（是否应用严格框内）。均已加入 `Access-Control-Expose-Headers`。
@@ -141,12 +144,12 @@ cd 05_后端引擎   # 从项目根目录进入
 set PYTHONPATH=%CD%
 python tests\test_orchestrator.py        # 核心流程 11 项
 python tests\test_api_robustness.py      # 边界与异常 19 项
-python tests\test_framework_strict.py    # 框架解析 + 严格框内 13 项
+python tests\test_framework_strict.py    # 框架解析 + 严格框内 + 线稿 16 项
 ```
 - `test_orchestrator.py`：授权终止、三步流水线、失败回退、指定引擎、Alpha无损、全部失败、智能识别（纯色/渐变/木纹）、纹理融合质量（文字去除且保留纹理），共 11 项。
 - `test_api_robustness.py`：rects 非法结构（非 JSON / 非数组 / 元素非对象 / 字段非数值 / NaN / 宽高为 0）、任务存储 FIFO 淘汰、引擎边界输入（空框 / 越界 / 负坐标 / 异常强度）、编排器边界场景，共 19 项。
 
-合计 43/43 应全部通过。测试素材见 `06_素材与示例/测试输入/`。
+合计 46/46 应全部通过。测试素材见 `06_素材与示例/测试输入/`。
 
 `test_framework_strict.py` 内含**跨端一致性**用例：从小程序的 `utils/prompt.js`
 抽取示例提示词，交给 Python 解析，结果必须与前端一致——防止两端规则漂移。
