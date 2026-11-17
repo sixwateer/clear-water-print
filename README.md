@@ -118,11 +118,11 @@ python server.py
 | 目标 | 方式 | 结果 |
 |---|---|---|
 | HTML 普通版算法 | `node run.js`（从交付 HTML 抽取真实函数在 Node 执行） | **18/18** 断言通过（6 场景 × 3 模式） |
-| HTML 普通版页面 | 无头浏览器跑完整流程（含三框/闭合轮廓线稿/描边输出） | **17/17** 端到端通过 |
+| HTML 普通版页面 | 无头浏览器跑完整流程（含三框/闭合轮廓去除还原） | **17/17** 端到端通过 |
 | 小程序版 | `node tests/test_new_features.js`（框架/提示词/手势/严格框内） | **9/9** 通过 |
 | 后端核心流程 | `python tests/test_orchestrator.py` | **11/11** 通过 |
 | 后端边界与异常 | `python tests/test_api_robustness.py` | **19/19** 通过 |
-| 后端框架与严格框内 | `python tests/test_framework_strict.py`（跨端一致性 + 线稿 + 逐像素） | **16/16** 通过 |
+| 后端框架与严格框内 | `python tests/test_framework_strict.py`（跨端一致性 + 轮廓去除 + 逐像素） | **16/16** 通过 |
 | HTML 后端版页面 | `node 08_自测/html/test_backend_page.js`（真实脚本沙箱） | **15/15** 通过 |
 
 关键性能与质量指标：超大框 1582ms → **40ms**（多尺度扩散）；贴边场景边界色差 44.9 → **6.9**（镜像采样）；水印残影率修复后降至 **0**。

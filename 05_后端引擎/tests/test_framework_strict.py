@@ -19,7 +19,7 @@ import numpy as np
 from PIL import Image
 
 import api_v2
-from api_v2 import parse_prompt, resolve_framework, compose_strict, parse_polygons, sketch_polygon
+from api_v2 import parse_prompt, resolve_framework, compose_strict, parse_polygons, polygon_inpaint
 
 ROOT = Path(__file__).resolve().parents[1]
 MINI_PROMPT_JS = ROOT.parent / "04_小程序版" / "utils" / "prompt.js"
@@ -131,8 +131,8 @@ class TestStrictComposition(unittest.TestCase):
         self.assertIs(compose_strict(orig, rep, [{"x": 1, "y": 1, "w": 2, "h": 2}]), rep)
 
 
-class TestSketchPolygon(unittest.TestCase):
-    """闭合轮廓线稿：输入是点轨迹，输出是黑线白底，轮廓外不变。"""
+class TestContourInpaint(unittest.TestCase):
+    """闭合轮廓去除：轮廓内用周边颜色还原，轮廓外不变。"""
 
     def test_parse_polygons_and_auto_close(self):
         polys, err = parse_polygons('[[[10,10],[50,10],[50,50],[10,50]]]')
@@ -148,20 +148,22 @@ class TestSketchPolygon(unittest.TestCase):
         _, err = parse_polygons('[[[1,2],[3,4],[5,6],[x,8]]]')
         self.assertIsNotNone(err)
 
-    def test_sketch_outside_unchanged_and_line_output(self):
+    def test_contour_removes_target_and_keeps_outside(self):
         W = H = 100
         arr = np.zeros((H, W, 3), dtype=np.uint8)
-        arr[:, :50] = 20    # 左暗
-        arr[:, 50:] = 220   # 右亮，x=50 形成竖直强边缘
+        arr[:, :50] = (40, 70, 120)    # 左侧衣服色
+        arr[:, 50:] = (220, 210, 190)  # 右侧背景板色
         img = Image.fromarray(arr, "RGB")
         poly = [[(20, 20), (80, 20), (80, 80), (20, 80), (20, 20)]]
-        out = np.asarray(sketch_polygon(img, poly))
-        # 轮廓外逐像素不变
+        out = np.asarray(polygon_inpaint(img, poly))
+        # 轮廓外逐字节不变
         np.testing.assert_array_equal(out[5, 5], arr[5, 5])
-        # 轮廓内非边缘为白底
-        self.assertTrue(np.all(out[40, 40] == 250))
-        # 轮廓内边缘为黑线
-        self.assertTrue(np.all(out[40, 50] == 28))
+        np.testing.assert_array_equal(out[95, 95], arr[95, 95])
+        # 轮廓内目标色被替换，且不是黑白线稿
+        mid = out[40, 50]
+        self.assertFalse(np.array_equal(mid, arr[40, 50]))
+        self.assertFalse(np.array_equal(mid, (28, 28, 28)))
+        self.assertFalse(np.array_equal(mid, (250, 250, 250)))
 
 
 if __name__ == "__main__":

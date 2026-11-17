@@ -64,18 +64,21 @@ TEST = r'''
       var sk=S.rects[0];
       ok('轮廓自动闭合',!!(sk&&sk.points&&sk.points.length===5&&sk.kind==='line'),
          sk?(sk.kind+'/'+sk.points.length):'none');
-      // 9) 线稿算法：轮廓内转黑线白底，轮廓外逐字节不变
+      // 9) 轮廓去除还原：区域内取周边颜色，区域外逐字节不变
       var W=100,H=100,dd=new Uint8ClampedArray(W*H*4);
       for(var y=0;y<H;y++)for(var x=0;x<W;x++){
-        var ii=(y*W+x)*4,v=(x<50)?20:220;
-        dd[ii]=dd[ii+1]=dd[ii+2]=v;dd[ii+3]=255;
+        var ii=(y*W+x)*4;
+        // 左半暗蓝衣服色，右半浅米背景色，轮廓跨在中间
+        var v=(x<50)?[40,70,120]:[220,210,190];
+        dd[ii]=v[0];dd[ii+1]=v[1];dd[ii+2]=v[2];dd[ii+3]=255;
       }
       var snap=new Uint8ClampedArray(dd);
-      sketchRegion(dd,W,H,[{x:20,y:20},{x:80,y:20},{x:80,y:80},{x:20,y:80},{x:20,y:20}]);
-      var outside=dd[(5*W+5)*4]===snap[(5*W+5)*4];
-      var white=dd[(40*W+40)*4]===250;
-      var black=dd[(40*W+50)*4]===28;
-      ok('线稿描边',outside&&white&&black,'外'+outside+' 白'+white+' 线'+black);
+      polygonRemove(dd,W,H,[{x:20,y:20},{x:80,y:20},{x:80,y:80},{x:20,y:80},{x:20,y:20}],200);
+      var outside=dd[(5*W+5)*4]===snap[(5*W+5)*4]&&dd[(95*W+95)*4]===snap[(95*W+95)*4];
+      // 轮廓内不再是原始的高饱和包色，也不应是黑白二值，而是过渡还原色
+      var mid=(40*W+50)*4;
+      var restored=(dd[mid]!==snap[mid])&&!(dd[mid]===28&&dd[mid+1]===28&&dd[mid+2]===28)&&!(dd[mid]===250&&dd[mid+1]===250&&dd[mid+2]===250);
+      ok('轮廓去除还原',outside&&restored,'外'+outside+' 还原'+restored+' rgb('+dd[mid]+','+dd[mid+1]+','+dd[mid+2]+')');
       // 10) 整图框（极端：无有效边界）
       S.rects=[{x:0,y:0,w:stage.width,h:stage.height}];S.activeBox=0;
       var u0=repair(); ok('整图框',u0.length>1000);

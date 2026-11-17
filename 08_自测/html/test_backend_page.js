@@ -208,14 +208,14 @@ check('轮廓线稿：保留轨迹点并自动闭合，不再取外接矩形', f
   assert.deepStrictEqual(r.points[0], r.points[r.points.length - 1]);
 });
 
-check('后端交互：轮廓走 sketch + polygon，矩形才走 rects', async function () {
+check('后端交互：轮廓走 contour + polygon，矩形才走 rects', async function () {
   S.serverOnline = true; S.file = {}; S.scale = 1; S.img = {};
   S.rects = [{ x: 10, y: 10, w: 40, h: 40, kind: 'line', points: [
     { x: 10, y: 10 }, { x: 50, y: 10 }, { x: 50, y: 50 }, { x: 10, y: 50 }, { x: 10, y: 10 }
   ] }];
   captured.rects = 'SENTINEL';
   await ctx.callBackend();
-  assert.strictEqual(captured.effect, 'sketch');
+  assert.strictEqual(captured.effect, 'contour');
   const polys = JSON.parse(captured.polygon);
   assert.strictEqual(polys.length, 1);
   assert.strictEqual(polys[0].length, 5);

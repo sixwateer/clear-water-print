@@ -24,6 +24,11 @@ try:
 except ImportError:  # 无 numpy 时退化为 PIL 逐像素合成
     np = None
 
+try:
+    import cv2
+except ImportError:  # 无 OpenCV 时轮廓去除不可用（基础依赖已包含）
+    cv2 = None
+
 from pipeline.context import ProcessContext
 from pipeline.orchestrator import OrchestratorConfig
 from pipeline.states import FALLBACK_ORDER
@@ -139,30 +144,25 @@ def parse_polygons(polygons: str) -> tuple[list[list[tuple[float, float]]], str 
     return out, None
 
 
-def sketch_polygon(image: Image.Image, polygons: list[list[tuple[float, float]]]) -> Image.Image:
-    """闭合轮廓内做线稿描边（Sobel + 二值化），输出黑线白底；轮廓外逐像素不变。"""
+def polygon_inpaint(image: Image.Image, polygons: list[list[tuple[float, float]]]) -> Image.Image:
+    """闭合轮廓内去除目标：用 OpenCV TELEA 从边界向内扩散，还原周边衣服/背景色。
+
+    与前端 polygonRemove 行为一致：只改轮廓内像素，轮廓外逐字节不变。
+    """
     if np is None:
-        raise RuntimeError("线稿效果需要 numpy")
+        raise RuntimeError("轮廓去除需要 numpy")
     if not polygons:
         return image
-    src = np.asarray(image.convert("RGB")).copy()
+    src = np.asarray(image.convert("RGB"))
     H, W = src.shape[:2]
-    gray = 0.299 * src[:, :, 0] + 0.587 * src[:, :, 1] + 0.114 * src[:, :, 2]
-    gx = np.zeros_like(gray)
-    gy = np.zeros_like(gray)
-    gx[1:-1, 1:-1] = (-gray[:-2, :-2] - 2 * gray[1:-1, :-2] - gray[2:, :-2]
-                      + gray[:-2, 2:] + 2 * gray[1:-1, 2:] + gray[2:, 2:])
-    gy[1:-1, 1:-1] = (-gray[:-2, :-2] - 2 * gray[:-2, 1:-1] - gray[:-2, 2:]
-                      + gray[2:, :-2] + 2 * gray[2:, 1:-1] + gray[2:, 2:])
-    line = np.sqrt(gx * gx + gy * gy) > 52
-    out = src.copy()
+    bgr = cv2.cvtColor(src, cv2.COLOR_RGB2BGR)
+    out = bgr.copy()
     for pts in polygons:
-        mask_img = Image.new("L", (W, H), 0)
-        ImageDraw.Draw(mask_img).polygon([(int(x), int(y)) for x, y in pts], fill=255)
-        mask = np.asarray(mask_img) > 127
-        out[mask & line] = (28, 28, 28)
-        out[mask & ~line] = (250, 250, 250)
-    return Image.fromarray(out, "RGB")
+        mask = np.zeros((H, W), dtype=np.uint8)
+        cv2.fillPoly(mask, [np.array([[int(x), int(y)] for x, y in pts], dtype=np.int32)], 255)
+        # TELEA 只改写 mask 内像素，颜色从 mask 外周边采样扩散进来
+        out = cv2.inpaint(out, mask, 3, cv2.INPAINT_TELEA)
+    return Image.fromarray(cv2.cvtColor(out, cv2.COLOR_BGR2RGB), "RGB")
 
 
 def compose_strict(original: Image.Image, repaired: Image.Image, rects: list[dict]) -> Image.Image:
@@ -396,8 +396,8 @@ async def process_fusion(
     framework: str = Form("smart", description="smart | texture | average | prompt"),
     prompt: str = Form("", description="提示词：描述框住的目标与补全依据"),
     strict_box: bool = Form(True, description="仅把框内修复像素写回原图，框外保持不变"),
-    effect: str = Form("inpaint", description="inpaint | sketch"),
-    polygon: str = Form("", description="sketch 用：闭合轮廓点 JSON [[[x,y],...]]"),
+    effect: str = Form("inpaint", description="inpaint | contour（兼容旧值 sketch）"),
+    polygon: str = Form("", description="轮廓去除用：闭合轮廓点 JSON [[[x,y],...]]"),
 ):
     """双引擎融合处理：返回修复图片二进制 + 元数据响应头。"""
     ctx, err = await _build_context(
@@ -407,30 +407,33 @@ async def process_fusion(
     if err:
         return err
 
-    # 线稿描边：不走进去除/修复流水线，直接对闭合轮廓内做 Sobel 描边
-    if effect == "sketch":
+    # 轮廓去除还原：不走进修复流水线，直接对闭合轮廓内做 inpainting，
+    # 用周边衣服/背景色还原；effect=sketch 为旧前端兼容值
+    if effect in ("contour", "sketch"):
         polys, poly_err = parse_polygons(polygon)
         if poly_err:
             return JSONResponse({"error": poly_err}, status_code=400)
         if not polys:
-            return JSONResponse({"error": "sketch 效果需提供 polygon 闭合轮廓"}, status_code=400)
+            return JSONResponse({"error": "轮廓去除需提供 polygon 闭合轮廓"}, status_code=400)
         if ctx.image is None:
-            return JSONResponse({"error": "sketch 效果需上传原图"}, status_code=400)
+            return JSONResponse({"error": "轮廓去除需上传原图"}, status_code=400)
+        if cv2 is None:
+            return JSONResponse({"error": "轮廓去除需要 OpenCV（请安装 opencv-python-headless）"}, status_code=500)
         t0 = time.time()
         try:
-            sketched = sketch_polygon(ctx.image, polys)
+            restored = polygon_inpaint(ctx.image, polys)
         except Exception as e:
-            return JSONResponse({"error": f"线稿处理失败: {e}"}, status_code=500)
+            return JSONResponse({"error": f"轮廓去除失败: {e}"}, status_code=500)
         elapsed = (time.time() - t0) * 1000
         _remember_task(ctx.task_id, {
-            "status": "succeeded", "effect": "sketch", "elapsed_ms": elapsed,
+            "status": "succeeded", "effect": "contour", "elapsed_ms": elapsed,
         })
         return Response(
-            content=_encode_png(sketched),
+            content=_encode_png(restored),
             media_type="image/png",
             headers={
                 "X-Task-Id": ctx.task_id,
-                "X-Effect-Used": "sketch",
+                "X-Effect-Used": "contour",
                 "X-Framework-Used": "",
                 "X-Prompt-Intent": json.dumps("", ensure_ascii=True),
                 "X-Strict-Box": "true",

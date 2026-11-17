@@ -254,13 +254,13 @@ footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
           </div>
           <div class="toolbar">
             <button class="tool active" id="toolRect"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>矩形框选</button>
-            <button class="tool" id="toolLine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17l5-8 5 5 4-7 4 4"/></svg>轮廓线稿</button>
+            <button class="tool" id="toolLine"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17l5-8 5 5 4-7 4 4"/></svg>轮廓去除</button>
             <button class="tool" id="toolAuto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>自动定位</button>
             <button class="tool" id="toolDel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>删当前框</button>
             <button class="tool" id="toolClear"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除标记</button>
-            <span class="tool-hint">最多三个区域 · 矩形=去除 · 轮廓=线稿描边</span>
+            <span class="tool-hint">最多三个区域 · 矩形/轮廓都是去除还原</span>
           </div>
-          <div class="box-readout" id="boxReadout">拖拽画矩形框去除；或选「轮廓线稿」沿目标画一圈，区域内转线条画</div>
+          <div class="box-readout" id="boxReadout">拖拽画矩形框，或选「轮廓去除」沿目标画一圈；区域内去除后按衣服/背景色还原</div>
         </div>
       </div>
     </div>
@@ -538,7 +538,7 @@ function inBox(p,r){return p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h}
 function setCursor(c){stage.style.cursor=c}
 function updateReadout(){
   const el=$('boxReadout');if(!el)return;
-  if(!S.rects.length){el.textContent=`拖拽画矩形框去除；或选「轮廓线稿」沿目标画一圈，区域内转线条画`;return}
+  if(!S.rects.length){el.textContent=`拖拽画矩形框，或选「轮廓去除」沿目标画一圈；区域内去除后按衣服/背景色还原`;return}
   const parts=S.rects.map((r,i)=>{
     const ox=Math.round(r.x/S.scale),oy=Math.round(r.y/S.scale);
     const ow=Math.round(r.w/S.scale),oh=Math.round(r.h/S.scale);
@@ -556,7 +556,7 @@ function down(e){
   const p=pos(e);
   for(let i=S.rects.length-1;i>=0;i--){
     const r=S.rects[i];
-    if(r.points)continue; // 线稿轮廓只能整体移动/删除重画，不提供手柄
+    if(r.points)continue; // 闭合轮廓只能整体移动/删除重画，不提供手柄
     const h=hitHandle(p,r);
     if(h){S.action='resize';S.activeBox=i;S.handle=h;S.orig={...r};S.start=p;draw();return}
   }
@@ -625,7 +625,7 @@ function setTool(t){
   S.tool=t;
   $('toolRect').classList.toggle('active',t==='rect');
   $('toolLine').classList.toggle('active',t==='line');
-  toast(t==='line'?'轮廓线稿：沿目标画一圈，区域内转为黑白线条画':'矩形框选：拖拽画框做去除，最多 3 个');
+  toast(t==='line'?'轮廓去除：沿目标画一圈，区域内去除后按衣服/背景色还原':'矩形框选：拖拽画框做去除，最多 3 个');
 }
 $('toolRect').onclick=()=>setTool('rect');
 $('toolLine').onclick=()=>setTool('line');
@@ -772,7 +772,7 @@ $('btnProcess').onclick=async()=>{
     showResult(result.url,result);
     const engName=CONFIG.engineNames[result.engine]||result.engine;
     const fwName=(FRAMEWORKS[result.framework]||{}).label||result.framework;
-    const label=result.effect==='sketch'?'线稿描边':fwName+' · '+engName;
+    const label=(result.effect==='sketch'||result.effect==='contour')?'轮廓去除还原':fwName+' · '+engName;
     toast(`处理完成 · ${label} · ${result.elapsed}ms`);
   }catch(err){
     console.warn('后端调用失败，降级为本地演示:',err);
@@ -806,10 +806,10 @@ async function callBackend(){
 
   const fd=new FormData();
   fd.append('file',S.file);
-  // 有闭合轮廓时走线稿描边：传轨迹点而非外接矩形，输出保持线条形态
+  // 有闭合轮廓时走轮廓去除：传轨迹点，按周边衣服/背景色还原
   const contours=S.rects.filter(r=>r.points&&r.points.length>2);
   if(contours.length){
-    fd.append('effect','sketch');
+    fd.append('effect','contour');
     fd.append('polygon',JSON.stringify(contours.map(r=>r.points.map(q=>[
       Math.round(q.x/S.scale),Math.round(q.y/S.scale)
     ]))));
@@ -879,11 +879,12 @@ function showResult(url,meta){
   const intent=m.intent||'';
   const effect=m.effect||'inpaint';
   const esc=s=>String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-  const head=effect==='sketch'
-    ?'<b>效果：</b>线稿描边（闭合轮廓内 · 黑线白底）'
+  const isContour=(effect==='contour'||effect==='sketch');
+  const head=isContour
+    ?'<b>效果：</b>轮廓去除还原（按周边衣服/背景色）'
     :`<b>修复框架：</b>${esc(fw)}`;
   $('resultMeta').innerHTML=head+'　<b>处理约束：</b>'+(strict?'仅所选区域，框外不变':'按引擎默认')+
-    (intent&&effect!=='sketch'?`<br><b>提示词意图：</b>${esc(intent)}`:'');
+    (intent&&!isContour?`<br><b>提示词意图：</b>${esc(intent)}`:'');
 }
 
 /* ============ 对比滑杆 ============ */
