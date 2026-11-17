@@ -11,8 +11,8 @@
 
 import io
 import json
+import math
 import time
-from pathlib import Path
 
 from fastapi import APIRouter, File, Form, UploadFile
 from fastapi.responses import JSONResponse, Response
@@ -22,15 +22,21 @@ from pipeline.context import ProcessContext
 from pipeline.orchestrator import OrchestratorConfig
 from pipeline.states import FALLBACK_ORDER
 from engine_registry import build_orchestrator, describe_engines
-from engines.reverse_alpha import (
-    default_registry, WatermarkTemplate,
-    make_solid_text_template,
-)
+from engines.reverse_alpha import default_registry, make_solid_text_template
 from engines.opencv_engine import OpenCVEngine
-import numpy as np
 
 # 简易任务状态存储（内存，演示用；生产应换 Redis/DB）
 _TASKS: dict[str, dict] = {}
+_TASK_LIMIT = 200  # 上限：防止长跑内存无限增长，超出后淘汰最早任务
+
+
+def _remember_task(task_id: str, info: dict) -> None:
+    """写入任务状态并限制总量（简单 FIFO 淘汰）。"""
+    _TASKS[task_id] = info
+    while len(_TASKS) > _TASK_LIMIT:
+        oldest = next(iter(_TASKS))
+        _TASKS.pop(oldest, None)
+
 
 router = APIRouter(prefix="/api/v2", tags=["fusion-v2"])
 
@@ -39,6 +45,38 @@ def _encode_png(image: Image.Image) -> bytes:
     buf = io.BytesIO()
     image.save(buf, format="PNG")
     return buf.getvalue()
+
+
+def _parse_rects(rects: str, *, allow_empty: bool = False) -> tuple[list[dict] | None, str | None]:
+    """解析并校验水印框，返回 (框列表, 错误信息)。
+
+    校验点：必须是列表、元素是 dict、x/y/w/h 必须是有限数值且 w/h > 0。
+    避免非法结构在引擎内部触发未捕获异常（500），统一在这里转成 400。
+    """
+    try:
+        data = json.loads(rects) if rects and rects.strip() else []
+    except (json.JSONDecodeError, TypeError):
+        return None, "rects 不是合法 JSON"
+    if not isinstance(data, list):
+        return None, "rects 必须是数组，例如 [{\"x\":10,\"y\":10,\"w\":50,\"h\":20}]"
+    if not data:
+        if allow_empty:
+            return [], None
+        return None, "rects 为空，请提供至少一个水印框"
+    cleaned: list[dict] = []
+    for i, r in enumerate(data):
+        if not isinstance(r, dict):
+            return None, f"rects[{i}] 必须是对象"
+        box = {}
+        for k in ("x", "y", "w", "h"):
+            v = r.get(k, 0)
+            if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+                return None, f"rects[{i}].{k} 必须是有限数值"
+            box[k] = v
+        if box["w"] <= 0 or box["h"] <= 0:
+            return None, f"rects[{i}] 的 w/h 必须大于 0"
+        cleaned.append(box)
+    return cleaned, None
 
 
 @router.get("/engines")
@@ -84,13 +122,13 @@ async def detect_content(
         image = Image.open(io.BytesIO(raw)).convert("RGB")
     except Exception as e:
         return JSONResponse({"error": f"图片解析失败: {e}"}, status_code=400)
+    rect_list, err = _parse_rects(rects)
+    if err:
+        return JSONResponse({"error": err}, status_code=400)
     try:
-        rect_list = json.loads(rects)
-    except json.JSONDecodeError:
-        return JSONResponse({"error": "rects 不是合法 JSON"}, status_code=400)
-    if not rect_list:
-        return JSONResponse({"error": "rects 为空"}, status_code=400)
-    result = OpenCVEngine.detect_content(image, rect_list[0])
+        result = OpenCVEngine.detect_content(image, rect_list[0])
+    except Exception as e:
+        return JSONResponse({"error": f"识别失败: {type(e).__name__}: {e}"}, status_code=422)
     return {"ok": True, **result}
 
 
@@ -114,10 +152,18 @@ def add_template(
     """注册纯色矩形固定水印模板（便捷入口）。"""
     try:
         fg = tuple(int(x) for x in foreground.split(","))
-        if len(fg) != 3:
+        if len(fg) != 3 or any(not 0 <= c <= 255 for c in fg):
             raise ValueError
     except ValueError:
-        return JSONResponse({"error": "foreground 需为 R,G,B 格式"}, status_code=400)
+        return JSONResponse({"error": "foreground 需为 0-255 范围的 R,G,B 格式"}, status_code=400)
+    if width <= 0 or height <= 0:
+        return JSONResponse({"error": "width / height 必须大于 0"}, status_code=400)
+    if not 0.0 <= alpha <= 1.0:
+        return JSONResponse({"error": "alpha 需在 0~1 之间"}, status_code=400)
+    if anchor not in ("bottom_right", "top_right", "bottom_left", "top_left", "center"):
+        return JSONResponse({"error": "anchor 不受支持"}, status_code=400)
+    if not template_id.strip():
+        return JSONResponse({"error": "template_id 不能为空"}, status_code=400)
 
     tpl = make_solid_text_template(
         template_id, label, (width, height), fg, alpha=alpha,
@@ -156,10 +202,9 @@ async def _build_context(
             {"error": "需提供图片文件或 source_url 分享链接"}, status_code=400
         )
 
-    try:
-        rect_list = json.loads(rects) if rects.strip() else []
-    except json.JSONDecodeError:
-        return None, JSONResponse({"error": "rects 不是合法 JSON"}, status_code=400)
+    rect_list, rect_err = _parse_rects(rects, allow_empty=True)
+    if rect_err:
+        return None, JSONResponse({"error": rect_err}, status_code=400)
 
     ctx = ProcessContext(
         image=image,
@@ -173,7 +218,7 @@ async def _build_context(
         authorized=authorized,
         prefer_engine=prefer_engine,
     )
-    _TASKS[ctx.task_id] = {"status": "created", "created_at": time.time()}
+    _remember_task(ctx.task_id, {"status": "created", "created_at": time.time()})
     return ctx, None
 
 
@@ -200,17 +245,26 @@ async def process_fusion(
         return err
 
     _TASKS[ctx.task_id]["status"] = "processing"
-    orch = build_orchestrator(OrchestratorConfig(strict_quality=strict_quality))
-    result = orch.process(ctx)
+    try:
+        orch = build_orchestrator(OrchestratorConfig(strict_quality=strict_quality))
+        result = orch.process(ctx)
+    except Exception as e:  # 兜底：编排器本身异常也要落库并给可操作响应
+        _remember_task(ctx.task_id, {
+            "status": "failed", "error": f"{type(e).__name__}: {e}",
+        })
+        return JSONResponse(
+            {"task_id": ctx.task_id, "status": "failed",
+             "error": f"处理流程异常: {type(e).__name__}: {e}"}, status_code=500
+        )
 
-    _TASKS[ctx.task_id] = {
+    _remember_task(ctx.task_id, {
         "status": result.status,
         "engine_used": result.engine_used,
         "lossless": result.lossless,
         "elapsed_ms": result.elapsed_ms,
         "trace": result.trace,
         "error": result.error,
-    }
+    })
 
     if result.status != "succeeded" or result.image is None:
         return JSONResponse(
@@ -254,8 +308,18 @@ async def process_fusion_json(
     )
     if err:
         return err
-    orch = build_orchestrator(OrchestratorConfig(strict_quality=strict_quality))
-    result = orch.process(ctx)
+    try:
+        orch = build_orchestrator(OrchestratorConfig(strict_quality=strict_quality))
+        result = orch.process(ctx)
+    except Exception as e:
+        _remember_task(ctx.task_id, {
+            "status": "failed", "error": f"{type(e).__name__}: {e}",
+        })
+        return JSONResponse(
+            {"task_id": ctx.task_id, "status": "failed",
+             "error": f"处理流程异常: {type(e).__name__}: {e}"}, status_code=500
+        )
+    _remember_task(ctx.task_id, {"status": result.status, "error": result.error})
     return result.to_dict()
 
 

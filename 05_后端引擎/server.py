@@ -136,13 +136,11 @@ async def inpaint(
         raw = await file.read()
         image = Image.open(io.BytesIO(raw)).convert("RGB")
 
-        try:
-            rect_list = json.loads(rects) if rects.strip() else []
-        except json.JSONDecodeError:
-            return JSONResponse({"error": "rects 不是合法 JSON"}, status_code=400)
-
-        if not rect_list:
-            return JSONResponse({"error": "未提供水印框 rects"}, status_code=400)
+        # 复用 v2 的统一校验，避免两个接口行为不一致
+        from api_v2 import _parse_rects
+        rect_list, rect_err = _parse_rects(rects)
+        if rect_err:
+            return JSONResponse({"error": rect_err}, status_code=400)
 
         # 选择引擎
         if engine == "auto" or engine not in ENGINES:
@@ -179,8 +177,55 @@ async def inpaint(
         return JSONResponse({"error": f"处理失败: {type(e).__name__}: {e}"}, status_code=500)
 
 
+def self_check() -> int:
+    """启动前自检：打印解释器、依赖、引擎与端口状态，返回 0=可启动 / 1=有问题。
+
+    用法：``python server.py --check``。定位"无法启动"时先跑这条命令。
+    """
+    import importlib.metadata as md
+    import socket
+    import sys
+
+    print("\n" + "=" * 58)
+    print("  净像后端 · 启动自检（python server.py --check）")
+    print("=" * 58)
+    print(f"  解释器: {sys.executable}")
+    print(f"  Python: {sys.version.split()[0]}")
+    ok = True
+    for pkg in ("fastapi", "uvicorn", "starlette", "python-multipart", "pillow",
+                "opencv-python-headless", "numpy"):
+        try:
+            ver = md.version(pkg)
+            print(f"    ✅ {pkg} {ver}")
+        except md.PackageNotFoundError:
+            ok = False
+            print(f"    ❌ {pkg} 缺失 → pip install -r requirements.txt")
+    print("  引擎:")
+    for e in _engine_list():
+        flag = "✅" if e["available"] else "⚠️ "
+        print(f"    {flag} {e['label']}")
+    # 端口占用检测
+    s = socket.socket()
+    s.settimeout(0.5)
+    try:
+        s.connect(("127.0.0.1", 8000))
+        print("    ❌ 端口 8000 已被占用（可能有另一个服务在运行）")
+        ok = False
+    except OSError:
+        print("    ✅ 端口 8000 可用")
+    finally:
+        s.close()
+    print(f"  结论: {'环境就绪，可执行 python server.py' if ok else '存在问题，请先按上面提示处理'}")
+    print("=" * 58 + "\n")
+    return 0 if ok else 1
+
+
 if __name__ == "__main__":
-    # 【功能入口】启动打印引擎自检信息，便于确认依赖是否就绪。
+    # 【功能入口】--check 仅自检不启动服务，便于排查"无法启动"。
+    import sys
+    if "--check" in sys.argv:
+        raise SystemExit(self_check())
+
     import uvicorn
 
     print("\n" + "=" * 58)
@@ -194,7 +239,14 @@ if __name__ == "__main__":
     print("  本地首页: http://127.0.0.1:8000/")
     print("  接口文档: http://127.0.0.1:8000/docs")
     print("  健康检查: http://127.0.0.1:8000/api/health")
+    print("  自检命令: python server.py --check")
     print("  停止服务: 在本窗口按 Ctrl+C 或直接关闭窗口")
     print("=" * 58 + "\n")
     # 【修改点】host/port 改这里；如需外部访问改 host 为 0.0.0.0 并务必加鉴权
-    uvicorn.run(app, host="127.0.0.1", port=8000)
+    try:
+        uvicorn.run(app, host="127.0.0.1", port=8000)
+    except OSError as e:
+        # 端口占用等启动期错误给出可操作提示，而不是裸 traceback
+        print(f"\n[启动失败] {type(e).__name__}: {e}")
+        print("[处理] 先运行 python server.py --check 自检；若端口被占用，关闭占用 8000 的程序。")
+        raise SystemExit(1)

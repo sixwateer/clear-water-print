@@ -24,16 +24,19 @@
 | 纹理自然融合 | `engines/opencv_engine.py::inpaint(method="auto")` | 文字水印走"笔画级"修复保留木纹；色块走源块羽化融合 |
 | 前端引擎通俗说明 | `api_v2.py::get_engines` 的 `engine_guide` | 前端"选择引擎"区展示的名称/说明来自这里 |
 | 选框交互（单选/拖拽/缩放） | `02_HTML版/*.html` 的画布交互区 | 两页统一：只保留一个框、可拖动移动、8 向手柄缩放 |
-| 启动自检与依赖 | `start.bat` / `requirements.txt` | 首启自动装依赖；缺 LaMA 自动降级 OpenCV，闭环仍可用 |
+| 启动自检与依赖 | `python server.py --check` / `start.bat` | 自检打印解释器、依赖版本、引擎状态、8000 端口占用；`start.bat` 自动跳过微软商店占位符 Python |
+| 输入校验 / 异常处理 | `api_v2.py::_parse_rects`、`process_fusion` | 非法 rects 统一返回 400；处理异常兜底 500 且任务状态正确落库；任务存储有上限 |
 
 > 注意：前端两版（普通版 / 后端对接版）选框交互与视觉规范已保持一致；普通版纯前端即可用，后端版需先启动本服务。
 
 ## 快速开始（Windows）
 
-1. 双击 `start.bat`（首次运行会自动安装基础依赖）
+1. 双击 `start.bat`（自动寻找装了依赖的 Python，跳过微软商店占位符；首次会装依赖）
 2. 看到 `Uvicorn running on http://127.0.0.1:8000` 即启动成功
 3. 打开项目根目录 `02_HTML版/原始原型_对接后端版.html`，右上角显示"本地引擎已就绪"即可使用
 4. 上传图片 → 框选水印 → 点击"开始智能修复" → 对比并下载
+
+> **无法启动时**：先运行 `python server.py --check` 自检。它会打印实际使用的解释器路径、各依赖版本、引擎可用性和 8000 端口占用情况。最常见的两个原因：① 系统 `python` 命中了微软商店占位符（自检显示的解释器路径含 `WindowsApps`）；② 8000 端口被其他程序占用。
 
 > 接口文档：http://127.0.0.1:8000/docs
 
@@ -112,9 +115,13 @@ pip install simple-lama-inpainting
 ```bash
 cd 05_后端引擎   # 从项目根目录进入
 set PYTHONPATH=%CD%
-python tests\test_orchestrator.py
+python tests\test_orchestrator.py        # 核心流程 11 项
+python tests\test_api_robustness.py      # 边界与异常 19 项
 ```
-覆盖授权终止、三步流水线、失败回退、指定引擎、Alpha无损、全部失败、智能识别（纯色/渐变/木纹）、纹理融合质量（文字去除且保留纹理）共 11 项，应 11/11 通过。测试素材见 `06_素材与示例/测试输入/`。
+- `test_orchestrator.py`：授权终止、三步流水线、失败回退、指定引擎、Alpha无损、全部失败、智能识别（纯色/渐变/木纹）、纹理融合质量（文字去除且保留纹理），共 11 项。
+- `test_api_robustness.py`：rects 非法结构（非 JSON / 非数组 / 元素非对象 / 字段非数值 / NaN / 宽高为 0）、任务存储 FIFO 淘汰、引擎边界输入（空框 / 越界 / 负坐标 / 异常强度）、编排器边界场景，共 19 项。
+
+合计 30/30 应全部通过。测试素材见 `06_素材与示例/测试输入/`。
 
 ## 目录结构
 
@@ -130,7 +137,8 @@ python tests\test_orchestrator.py
 │   └── opencv_adapter.py   # 兜底
 ├── pipeline/               # 编排核心（状态/异常/上下文/Orchestrator）
 ├── tests/
-│   └── test_orchestrator.py # 回归测试（unittest 测试类，11 项）
+│   ├── test_orchestrator.py     # 核心流程回归（unittest，11 项）
+│   └── test_api_robustness.py   # 边界与异常回归（unittest，19 项）
 ├── models/                 # LaMA 模型缓存（自动生成，已 gitignore）
 └── start.bat / requirements.txt
 ```
