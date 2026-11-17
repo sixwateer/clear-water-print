@@ -47,10 +47,15 @@ echo [5/5] 推送到 GitHub (origin/main)...
 git push origin main
 if errorlevel 1 (
     echo.
-    echo [错误] 推送失败。请确认：
-    echo   1. 网络可访问 github.com（需要时先开代理，或设置 git 代理）
-    echo   2. 已登录且有该仓库写权限（git credential manager 已缓存凭据）
-    echo   3. 远程地址正确：git remote -v
+    echo [错误] 推送失败。常见原因与处理：
+    echo   1. 提示 Invalid username or token / Bad credentials
+    echo      =^> 凭据已失效，执行一次重新登录后重试：
+    echo         gh auth login --hostname github.com --git-protocol https --web
+    echo   2. 网络超时
+    echo      =^> 确认代理可用，或为 git 单独设置：
+    echo         git config --global http.proxy http://127.0.0.1:7897
+    echo         git config --global --unset http.proxy   ^(取消^)
+    echo   3. 远程地址不对 =^> git remote -v 核对
     pause
     exit /b 1
 )
