@@ -19,14 +19,14 @@ Page({
     // 设置
     mode: 'smart',
     modeDesc: {
-      smart: '智能修复：适合纯色/渐变背景，近乎无痕（推荐）',
-      average: '快速填充：适合小面积瑕疵，速度最快',
-      texture: '纹理平移：适合草地、砖墙等重复纹理背景'
+      smart: '智能修复：根据水印四周颜色向内推算，纯色/渐变背景近乎无痕（推荐）',
+      average: '快速填充：取边缘颜色平铺，适合面积很小、背景单一的水印',
+      texture: '纹理修复：对木纹、草地等纹理背景整框扩散重建，彻底去除文字、不留残影'
     },
     modes: [
       { key: 'smart', label: '智能修复' },
       { key: 'average', label: '快速填充' },
-      { key: 'texture', label: '纹理平移' }
+      { key: 'texture', label: '纹理修复' }
     ],
     authorized: false,
     compliance: ''
@@ -50,46 +50,69 @@ Page({
     return 1;
   },
 
-  // 读取触摸点相对画布的坐标，部分机型只提供 clientX/clientY
+  // 读取触摸点相对画布的坐标。
+  // canvas 组件触摸事件优先提供相对画布的 x/y；仅给 clientX/clientY 的机型，
+  // 需减去画布在视口中的位置（缓存在 _drawBase 的 _rect），否则框选会错位。
   _touchPos: function (t) {
-    return {
-      x: (t.x != null ? t.x : t.clientX) || 0,
-      y: (t.y != null ? t.y : t.clientY) || 0
-    };
+    if (!t) return { x: 0, y: 0 };
+    if (t.x != null && t.y != null) return { x: t.x, y: t.y };
+    const rect = this._rect || { left: 0, top: 0 };
+    return { x: (t.clientX || 0) - rect.left, y: (t.clientY || 0) - rect.top };
   },
 
   // 选择图片
   chooseImage: function () {
     const that = this;
-    wx.chooseMedia({
-      count: 1,
-      mediaType: ['image'],
-      sourceType: ['album', 'camera'],
-      success: function (res) {
-        const path = res.tempFiles[0].tempFilePath;
-        wx.getImageInfo({
-          src: path,
-          success: function (info) {
-            const maxW = 345; // px，约 690rpx
-            const scale = Math.min(1, maxW / info.width);
-            const dw = Math.round(info.width * scale);
-            const dh = Math.round(info.height * scale);
-            that._scale = scale;
-            that._originW = info.width;
-            that._originH = info.height;
-            that.setData({
-              imagePath: path,
-              displayW: dw,
-              displayH: dh,
-              hasImage: true,
-              processed: false,
-              box: null,
-              resultPath: ''
-            }, function () {
-              that._drawBase();
-            });
-          }
+    // wx.chooseMedia 需基础库 2.10.0+，老版本兜底用 wx.chooseImage
+    if (wx.chooseMedia) {
+      wx.chooseMedia({
+        count: 1,
+        mediaType: ['image'],
+        sourceType: ['album', 'camera'],
+        success: function (res) {
+          const path = res.tempFiles && res.tempFiles[0] && res.tempFiles[0].tempFilePath;
+          if (path) that._loadImage(path);
+        }
+      });
+    } else {
+      wx.chooseImage({
+        count: 1,
+        sourceType: ['album', 'camera'],
+        success: function (res) {
+          const path = res.tempFilePaths && res.tempFilePaths[0];
+          if (path) that._loadImage(path);
+        }
+      });
+    }
+  },
+
+  // 读取图片信息并加载到画布
+  _loadImage: function (path) {
+    const that = this;
+    wx.getImageInfo({
+      src: path,
+      success: function (info) {
+        const maxW = 345; // px，约 690rpx
+        const scale = Math.min(1, maxW / info.width);
+        const dw = Math.round(info.width * scale);
+        const dh = Math.round(info.height * scale);
+        that._scale = scale;
+        that._originW = info.width;
+        that._originH = info.height;
+        that.setData({
+          imagePath: path,
+          displayW: dw,
+          displayH: dh,
+          hasImage: true,
+          processed: false,
+          box: null,
+          resultPath: ''
+        }, function () {
+          that._drawBase();
         });
+      },
+      fail: function () {
+        wx.showToast({ title: '图片读取失败，请换一张', icon: 'none' });
       }
     });
   },
@@ -98,10 +121,14 @@ Page({
   _drawBase: function (box) {
     const that = this;
     const query = wx.createSelectorQuery().in(this);
-    query.select('#stage').fields({ node: true, size: true }).exec(function (res) {
-      const canvas = res[0].node;
+    // rect: true 同时取 canvas 在视口中的位置，用于触摸坐标兜底换算
+    query.select('#stage').fields({ node: true, size: true, rect: true }).exec(function (res) {
+      const canvas = res[0] && res[0].node;
+      if (!canvas) return;
+      // 缓存画布屏幕位置（触摸事件仅提供 clientX/clientY 时的兜底）
+      that._rect = { left: res[0].left || 0, top: res[0].top || 0 };
       const ctx = canvas.getContext('2d');
-      const dpr = this._getDpr();
+      const dpr = that._getDpr();
       canvas.width = that.data.displayW * dpr;
       canvas.height = that.data.displayH * dpr;
       ctx.scale(dpr, dpr);
@@ -126,9 +153,11 @@ Page({
   // 触摸开始
   onTouchStart: function (e) {
     if (!this.data.hasImage || this.data.processed) return;
-    const t = this._touchPos(e.touches[0]);
+    const t = this._touchPos(e.touches && e.touches[0]);
+    // 钳制到画布范围内，保证框选坐标合法
+    this._sx = Math.max(0, Math.min(t.x, this.data.displayW));
+    this._sy = Math.max(0, Math.min(t.y, this.data.displayH));
     this.setData({ drawing: true });
-    this._sx = t.x; this._sy = t.y;
   },
 
   // 触摸移动
@@ -143,35 +172,59 @@ Page({
   // 触摸结束
   onTouchEnd: function (e) {
     if (!this.data.drawing) return;
-    const t = this._touchPos(e.changedTouches[0]);
+    const ct = e.changedTouches && e.changedTouches[0];
+    this.setData({ drawing: false });
+    if (!ct) { this._drawBase(this.data.box); return; }
+    const t = this._touchPos(ct);
     const x = Math.min(this._sx, t.x), y = Math.min(this._sy, t.y);
     const w = Math.abs(t.x - this._sx), h = Math.abs(t.y - this._sy);
-    this.setData({ drawing: false });
-    if (w > 8 && h > 8) {
-      const box = { x: Math.round(x), y: Math.round(y), w: Math.round(w), h: Math.round(h) };
+    // 钳制到画布内，避免手指拖出画布产生负坐标框
+    const maxW = this.data.displayW, maxH = this.data.displayH;
+    const cx = Math.max(0, Math.min(x, maxW - 1));
+    const cy = Math.max(0, Math.min(y, maxH - 1));
+    const cw = Math.min(w, maxW - cx), ch = Math.min(h, maxH - cy);
+    if (cw > 8 && ch > 8) {
+      const box = { x: Math.round(cx), y: Math.round(cy), w: Math.round(cw), h: Math.round(ch) };
       this.setData({ box: box });
       this._drawBase(box);
       wx.showToast({ title: '已框选区域', icon: 'success' });
+    } else {
+      this._drawBase(this.data.box);
     }
   },
 
-  // 自动框右下角
+  // 自动框右下角（常见平台水印位置；比例贴近实际水印，配合修复时的自动外扩兜边）
   autoBox: function () {
     if (!this.data.hasImage) return;
-    const bw = this.data.displayW * 0.3, bh = this.data.displayH * 0.12;
+    const bw = this.data.displayW * 0.24, bh = this.data.displayH * 0.07;
     const box = {
       x: Math.round(this.data.displayW - bw - 8),
       y: Math.round(this.data.displayH - bh - 8),
-      w: Math.round(bw), h: Math.round(bh)
+      w: Math.max(10, Math.round(bw)),
+      h: Math.max(10, Math.round(bh))
     };
     this.setData({ box: box });
     this._drawBase(box);
-    wx.showToast({ title: '已自动框右下角', icon: 'none' });
+    wx.showToast({ title: '已框右下角，可拖动重框微调', icon: 'none' });
   },
 
   clearBox: function () {
     this.setData({ box: null });
     this._drawBase();
+  },
+
+  // 微调框大小：data-d 为每边调整像素（正=扩大，负=缩小）
+  adjustBox: function (e) {
+    if (!this.data.box) { wx.showToast({ title: '请先框选区域', icon: 'none' }); return; }
+    const d = parseInt(e.currentTarget.dataset.d, 10) || 0;
+    const b = this.data.box;
+    const x1 = Math.max(0, b.x - d), y1 = Math.max(0, b.y - d);
+    const x2 = Math.min(this.data.displayW, b.x + b.w + d);
+    const y2 = Math.min(this.data.displayH, b.y + b.h + d);
+    if (x2 - x1 < 10 || y2 - y1 < 10) return; // 防止缩没
+    const box = { x: Math.round(x1), y: Math.round(y1), w: Math.round(x2 - x1), h: Math.round(y2 - y1) };
+    this.setData({ box: box });
+    this._drawBase(box);
   },
 
   setMode: function (e) {
@@ -190,8 +243,32 @@ Page({
     this.setData({ busy: true });
     wx.showLoading({ title: '修复中…' });
 
-    const off = wx.createOffscreenCanvas({ type: '2d', width: that._originW, height: that._originH });
-    const octx = off.getContext('2d');
+    // 原图分辨率离屏处理。wx.createOffscreenCanvas 需基础库 2.16.1+，
+    // 老版本退回到页面上隐藏的 type=2d 画布（#offstage）。
+    if (wx.createOffscreenCanvas) {
+      const off = wx.createOffscreenCanvas({ type: '2d', width: that._originW, height: that._originH });
+      that._runRepair(off, off.getContext('2d'), function (cb) {
+        wx.canvasToTempFilePath({ canvas: off, success: cb.success, fail: cb.fail });
+      });
+    } else {
+      wx.createSelectorQuery().in(that).select('#offstage').fields({ node: true, size: true }).exec(function (res) {
+        const node = res[0] && res[0].node;
+        if (!node) {
+          wx.hideLoading(); that.setData({ busy: false });
+          wx.showToast({ title: '当前微信版本过低，请升级', icon: 'none' });
+          return;
+        }
+        node.width = that._originW; node.height = that._originH;
+        that._runRepair(node, node.getContext('2d'), function (cb) {
+          wx.canvasToTempFilePath({ canvas: node, success: cb.success, fail: cb.fail });
+        });
+      });
+    }
+  },
+
+  // 在给定 canvas 上执行修复并导出
+  _runRepair: function (off, octx, exportFn) {
+    const that = this;
     const img = off.createImage();
     img.onload = function () {
       try {
@@ -207,8 +284,7 @@ Page({
         inpaint.repair(imageData, rect, that.data.mode, app.globalData.algo.smartIterations);
         octx.putImageData(imageData, 0, 0);
 
-        wx.canvasToTempFilePath({
-          canvas: off,
+        exportFn({
           success: function (res) {
             that.setData({ resultPath: res.tempFilePath, processed: true, busy: false });
             wx.hideLoading();

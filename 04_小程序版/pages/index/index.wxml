@@ -34,6 +34,8 @@
 
       <view class="box-tools" wx:if="{{!processed}}">
         <button class="btn-mini" size="mini" bindtap="autoBox">自动框右下角</button>
+        <button class="btn-mini" size="mini" data-d="-6" bindtap="adjustBox">框缩小</button>
+        <button class="btn-mini" size="mini" data-d="6" bindtap="adjustBox">框放大</button>
         <button class="btn-mini" size="mini" bindtap="clearBox">清除框选</button>
       </view>
     </view>
@@ -72,4 +74,7 @@
     <text class="privacy-link" bindtap="goPrivacy">用户协议与隐私政策</text>
     <text>净像 · 图片修复 v1.0 · 全程本地处理</text>
   </view>
+
+  <!-- 隐藏离屏画布：老基础库（无 createOffscreenCanvas）时的修复兜底 -->
+  <canvas type="2d" id="offstage" class="offstage"></canvas>
 </view>

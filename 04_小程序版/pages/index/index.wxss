@@ -92,7 +92,8 @@
 
 .box-tools {
   display: flex;
-  gap: 16rpx;
+  flex-wrap: wrap;
+  gap: 12rpx;
   margin-top: 20rpx;
 }
 
@@ -204,4 +205,14 @@
   color: #0F9E8E;
   font-size: 22rpx;
   text-decoration: underline;
+}
+
+/* 隐藏离屏画布：移出可视区但保留渲染能力 */
+.offstage {
+  position: fixed;
+  left: -9999px;
+  top: -9999px;
+  width: 1px;
+  height: 1px;
+  pointer-events: none;
 }
