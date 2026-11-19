@@ -44,7 +44,7 @@ node test_backend_page.js   # 后端对接版：框架/提示词/多框/轮廓�
   `fillAverage` / `sharpen` / `growRect` / `injectTexture` 等函数源码，
   在 Node 里执行——不是抄一份副本，改了 HTML 断言立即跟着变。
 - **测真实图**：`06_素材与示例/测试输入/test_wood_texture_watermark.jpg`
-  （木桌 + 手 + 半透明"豆包AI生成"水印，1280×2278）。
+  （木桌 + 手 + 半透明水印，1280×2278）。
 - **指标**：
   | 指标 | 含义 | 判定 |
   |------|------|------|

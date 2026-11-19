@@ -62,13 +62,13 @@
 <div class="wrap">
   <header>
     <h1>净像去水印 · 增强版 <span class="tag">双击即用 · 无需联网</span></h1>
-    <p>去除「豆包AI生成」水印与「JJ」标记，自动修复背景颜色、光影与纹理，清除区域与周围自然衔接。</p>
+    <p>去除图片水印与「JJ」标记，自动修复背景颜色、光影与纹理，清除区域与周围自然衔接。</p>
   </header>
 
   <div class="card toolbar">
     <div class="grp">
       <button class="primary" id="btnOpen">导入图片</button>
-      <button id="btnDemo1">示例 · 豆包水印</button>
+      <button id="btnDemo1">示例 · 水印图</button>
       <button id="btnDemo2">示例 · JJ 标记</button>
       <input type="file" id="file" accept="image/*" class="hidden">
     </div>
@@ -341,7 +341,7 @@ let boxes=[],mode='auto',sense=1,drawing=null,resultReady=false;
 
 const PRESET={
   // 尺寸匹配时自动预置框（原图坐标）
-  '1280x2278':{boxes:[{x:1062,y:2204,w:202,h:58}],mode:'smooth',name:'豆包水印'},
+  '1280x2278':{boxes:[{x:1062,y:2204,w:202,h:58}],mode:'smooth',name:'半透明水印'},
   '1024x559':{boxes:[{x:92,y:10,w:156,h:78},{x:452,y:322,w:68,h:76},{x:792,y:452,w:68,h:62},{x:187,y:427,w:96,h:106},{x:490,y:492,w:90,h:66}],mode:'stroke',name:'JJ 标记'}
 };
 

@@ -19,7 +19,7 @@ vm.createContext(sb);vm.runInContext(code,sb);
 
 function loadPx(name){const d=JSON.parse(fs.readFileSync('D:/去水印/08_自测/html/_tmp/px_'+name+'.json','utf8'));return{w:d.w,h:d.h,data:Uint8ClampedArray.from(d.data)}}
 
-// 3) 图1：豆包水印，平滑模式整框去除
+// 3) 图1：半透明水印图，平滑模式整框去除
 {
   const p=loadPx('wood'),orig=Uint8ClampedArray.from(p.data);
   const img={data:p.data,width:p.w,height:p.h};

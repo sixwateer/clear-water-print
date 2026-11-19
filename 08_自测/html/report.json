@@ -1,11 +1,11 @@
 {
   "html": "02_HTML版/净像去水印_普通版_双击即用.html",
-  "at": "2026-11-19T16:15:53.066Z",
+  "at": "2026-11-19T16:32:27.349Z",
   "items": [
     {
       "scenario": "正常框",
       "mode": "smart",
-      "ms": 48,
+      "ms": 44,
       "pass": true,
       "resBefore": 0.109,
       "resAfter": 0,
@@ -14,7 +14,7 @@
     {
       "scenario": "正常框",
       "mode": "average",
-      "ms": 1,
+      "ms": 2,
       "pass": true,
       "resBefore": 0.109,
       "resAfter": 0,
@@ -23,7 +23,7 @@
     {
       "scenario": "正常框",
       "mode": "texture",
-      "ms": 53,
+      "ms": 45,
       "pass": true,
       "resBefore": 0.109,
       "resAfter": 0,
@@ -32,7 +32,7 @@
     {
       "scenario": "贴底边",
       "mode": "smart",
-      "ms": 72,
+      "ms": 73,
       "pass": true,
       "resBefore": 0.056,
       "resAfter": 0,
@@ -41,7 +41,7 @@
     {
       "scenario": "贴底边",
       "mode": "average",
-      "ms": 1,
+      "ms": 2,
       "pass": true,
       "resBefore": 0.056,
       "resAfter": 0,
@@ -50,7 +50,7 @@
     {
       "scenario": "贴底边",
       "mode": "texture",
-      "ms": 72,
+      "ms": 87,
       "pass": true,
       "resBefore": 0.056,
       "resAfter": 0,
@@ -59,7 +59,7 @@
     {
       "scenario": "贴右下角",
       "mode": "smart",
-      "ms": 60,
+      "ms": 62,
       "pass": true,
       "resBefore": 0.057,
       "resAfter": 0,
@@ -77,7 +77,7 @@
     {
       "scenario": "贴右下角",
       "mode": "texture",
-      "ms": 74,
+      "ms": 91,
       "pass": true,
       "resBefore": 0.057,
       "resAfter": 0,
@@ -104,7 +104,7 @@
     {
       "scenario": "贴左上角",
       "mode": "texture",
-      "ms": 24,
+      "ms": 23,
       "pass": true,
       "resBefore": 0.848,
       "resAfter": 0.913,
@@ -113,7 +113,7 @@
     {
       "scenario": "超大框",
       "mode": "smart",
-      "ms": 40,
+      "ms": 37,
       "pass": true,
       "resBefore": 0.007,
       "resAfter": 0.053,
@@ -122,7 +122,7 @@
     {
       "scenario": "超大框",
       "mode": "average",
-      "ms": 0,
+      "ms": 1,
       "pass": true,
       "resBefore": 0.007,
       "resAfter": 0,
@@ -131,7 +131,7 @@
     {
       "scenario": "超大框",
       "mode": "texture",
-      "ms": 30,
+      "ms": 34,
       "pass": true,
       "resBefore": 0.007,
       "resAfter": 0.053,
@@ -158,7 +158,7 @@
     {
       "scenario": "极小框",
       "mode": "texture",
-      "ms": 2,
+      "ms": 1,
       "pass": true,
       "resBefore": 1,
       "resAfter": 1,
