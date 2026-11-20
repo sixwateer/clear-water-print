@@ -1,7 +1,10 @@
 <view class="page">
   <view class="hero">
-    <text class="brand">净像 · 图片修复</text>
-    <text class="subtitle">框住要去掉的目标，其余区域按背景与纹理补全。图片只在本机处理，不上传。</text>
+    <view class="hero-top">
+      <text class="brand">净像 · 图片修复</text>
+      <view class="nav-next" wx:if="{{hasImage}}" bindtap="nextPage">下一页 ›</view>
+    </view>
+    <text class="subtitle">框住或圈住要去掉的目标，其余区域按背景与纹理补全。图片只在本机处理，不上传。</text>
   </view>
 
   <!-- 未选图：上传引导 -->
@@ -17,7 +20,7 @@
     <view class="card">
       <view class="card-head">
         <text class="card-title">{{processed ? '修复结果' : '框选区域'}}</text>
-        <text class="card-hint">{{processed ? '预览效果' : '拖动手柄缩放 · 拖动框内移动 · 空白处重画'}}</text>
+        <text class="card-hint">{{processed ? '预览效果' : toolHint}}</text>
       </view>
 
       <!-- 处理前：可交互画布 -->
@@ -33,10 +36,17 @@
       </view>
 
       <view class="box-tools" wx:if="{{!processed}}">
-        <button class="btn-mini" size="mini" bindtap="autoBox">自动框右下角</button>
-        <button class="btn-mini" size="mini" data-d="-6" bindtap="adjustBox">框缩小</button>
-        <button class="btn-mini" size="mini" data-d="6" bindtap="adjustBox">框放大</button>
-        <button class="btn-mini" size="mini" bindtap="clearBox">清除框选</button>
+        <view class="tool-row">
+          <view class="tool-item {{tool === 'rect' ? 'active' : ''}}" data-key="rect" bindtap="setTool">矩形框选</view>
+          <view class="tool-item {{tool === 'line' ? 'active' : ''}}" data-key="line" bindtap="setTool">线条去除</view>
+          <view class="tool-item" bindtap="undoMark">撤销</view>
+          <view class="tool-item" bindtap="clearBox">清除</view>
+        </view>
+        <view class="mini-row">
+          <button class="btn-mini" size="mini" bindtap="autoBox">自动框右下角</button>
+          <button class="btn-mini" size="mini" data-d="-6" bindtap="adjustBox">框缩小</button>
+          <button class="btn-mini" size="mini" data-d="6" bindtap="adjustBox">框放大</button>
+        </view>
       </view>
     </view>
 
@@ -70,7 +80,7 @@
         maxlength="300" auto-height show-confirm-bar="{{false}}"
         placeholder="描述框住的目标和补全依据，例如：去掉框住的蓝色包，其余按背景和人物衣物补全" />
       <view class="prompt-intent" wx:if="{{promptIntent}}">{{promptIntent}}</view>
-      <view class="prompt-note">仅对框选区域生效；框外像素不做任何改动。</view>
+      <view class="prompt-note">仅对框选/线条区域生效；框外与线条外像素不做任何改动。</view>
 
       <view class="auth-row" bindtap="toggleAuth">
         <view class="checkbox {{authorized ? 'checked' : ''}}">{{authorized ? '✓' : ''}}</view>

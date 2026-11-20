@@ -848,16 +848,102 @@ async function callBackend(){
   };
 }
 
-/* 本地降级演示：后端不可用时使用（保留原型的演示能力）*/
+/* 本地降级演示：后端不可用时使用。
+   算法逻辑与权威 HTML（11:06 定稿版）对齐：矩形按所选框架修复；
+   线条按闭合多边形 mask 只改内部（射线法 + ROI 外扩 28%/min8），外部逐字节不变。 */
+function _inPoly(px,py,pts){
+  let inside=false;
+  for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+    const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;
+    if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;
+  }
+  return inside;
+}
 function localFallback(){
   const c=document.createElement('canvas');c.width=baseImage.width;c.height=baseImage.height;
-  const cx=c.getContext('2d');cx.drawImage(baseImage,0,0);
+  const cx=c.getContext('2d',{willReadFrequently:true});cx.drawImage(baseImage,0,0);
+  const imgData=cx.getImageData(0,0,c.width,c.height),data=imgData.data,W=c.width,H=c.height;
+  const mode=(function(){let m=S.framework;if(m==='prompt')m=(S.promptInfo&&S.promptInfo.framework)||'smart';return m})();
+  // 按原图坐标组织，矩形与线条分开处理（线条用多边形 mask，矩形用外接框）
   S.rects.forEach(r=>{
-    const x=Math.round(r.x/S.scale),y=Math.round(r.y/S.scale),w=Math.round(r.w/S.scale),h=Math.round(r.h/S.scale);
-    const sample=cx.getImageData(Math.max(0,x-6),Math.max(0,y-6),Math.max(1,w+12),Math.max(1,h+12));
-    cx.fillStyle=pickAvg(sample.data);
-    cx.fillRect(x,y,w,h);
+    const x0=Math.max(0,Math.round(r.x/S.scale)),y0=Math.max(0,Math.round(r.y/S.scale));
+    const w=Math.round(r.w/S.scale),h=Math.round(r.h/S.scale);
+    if(w<=0||h<=0)return;
+    if(!(r.kind==='line'&&r.points&&r.points.length>2)){
+      // 矩形：边缘均色 / 纹理平移 / 智能扩散（演示降级用简化扩散）
+      const x=Math.min(x0,W-1),y=Math.min(y0,H-1),rw=Math.min(w,W-x),rh=Math.min(h,H-y);
+      if(rw<2||rh<2)return;
+      if(mode==='average'){const col=pickAvg(cx.getImageData(Math.max(0,x-4),Math.max(0,y-4),Math.min(W,rw+8),Math.min(H,rh+8)).data);
+        const rgb=col.match(/\d+/g).map(Number);
+        for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){const d=((y+j)*W+(x+i))*4;data[d]=rgb[0];data[d+1]=rgb[1];data[d+2]=rgb[2]}
+      }else if(mode==='texture'){
+        let sy=y-rh-4;if(sy<0)sy=y+rh+4;sy=Math.max(0,Math.min(H-rh,sy));
+        const src=cx.getImageData(Math.max(0,Math.min(W-rw,x)),sy,rw,rh).data;
+        for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){const s=(j*rw+i)*4,d=((y+j)*W+(x+i))*4;data[d]=src[s];data[d+1]=src[s+1];data[d+2]=src[s+2]}
+      }else{
+        // 智能：以框外一圈为边界向内扩散（简化拉普拉斯，演示足够）
+        const pad=3,ew=Math.min(W,rw+pad*2),eh=Math.min(H,rh+pad*2);
+        const ex=Math.max(0,x-pad),ey=Math.max(0,y-pad);
+        const buf=cx.getImageData(ex,ey,ew,eh).data.slice();
+        for(let it=0;it<Math.max(80,S.strength*120);it++){
+          for(let j=pad;j<eh-pad;j++)for(let i=pad;i<ew-pad;i++){
+            const k=(j*ew+i)*4;
+            for(let ch=0;ch<3;ch++)buf[k+ch]=(buf[((j-1)*ew+i)*4+ch]+buf[((j+1)*ew+i)*4+ch]+buf[(j*ew+i-1)*4+ch]+buf[(j*ew+i+1)*4+ch])*0.25;
+          }
+        }
+        for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+          const s=((j+pad)*ew+(i+pad))*4,d=((y+j)*W+(x+i))*4;
+          data[d]=buf[s];data[d+1]=buf[s+1];data[d+2]=buf[s+2];
+        }
+      }
+      return;
+    }
+    // 线条：画布坐标→原图坐标 round，射线法 mask，ROI 外扩 28%/min8，只写 mask 内
+    const pts=r.points.map(q=>({x:Math.round(q.x/S.scale),y:Math.round(q.y/S.scale)}));
+    let mnx=Infinity,mny=Infinity,mxx=-Infinity,mxy=-Infinity;
+    pts.forEach(q=>{mnx=Math.min(mnx,q.x);mny=Math.min(mny,q.y);mxx=Math.max(mxx,q.x);mxy=Math.max(mxy,q.y)});
+    const polyW=mxx-mnx,polyH=mxy-mny;
+    if(polyW<=6||polyH<=6)return;
+    const exp=Math.max(8,Math.round(Math.min(polyW,polyH)*0.28));
+    const x1=Math.max(0,Math.floor(mnx)-exp),y1=Math.max(0,Math.floor(mny)-exp);
+    const x2=Math.min(W,Math.ceil(mxx)+exp),y2=Math.min(H,Math.ceil(mxy)+exp);
+    const rw=x2-x1,rh=y2-y1;if(rw<4||rh<4)return;
+    // mask
+    const mask=new Uint8Array(rw*rh);
+    for(let j=0;j<rh;j++)for(let i=0;i<rw;i++)if(_inPoly(x1+i+0.5,y1+j+0.5,pts))mask[j*rw+i]=1;
+    if(mask.reduce((a,b)=>a+b,0)<8)return;
+    if(mode==='average'){
+      let rr=0,gg=0,bb=0,n=0;
+      for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+        const k=j*rw+i;if(mask[k])continue;
+        let touch=false;
+        for(let dy=-3;dy<=3&&!touch;dy++)for(let dx=-3;dx<=3;dx++){
+          const ni=i+dx,nj=j+dy;if(ni<0||nj<0||ni>=rw||nj>=rh)continue;
+          if(mask[nj*rw+ni]){touch=true;break}
+        }
+        if(touch){const s=((y1+j)*W+(x1+i))*4;rr+=data[s];gg+=data[s+1];bb+=data[s+2];n++}
+      }
+      rr/=(n||1);gg/=(n||1);bb/=(n||1);
+      for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){const k=j*rw+i;if(!mask[k])continue;
+        const d=((y1+j)*W+(x1+i))*4;data[d]=rr;data[d+1]=gg;data[d+2]=bb}
+    }else{
+      // texture / smart 演示降级：以 mask 外环为边界向内扩散，只写 mask 内
+      const buf=new Float32Array(rw*rh*3);
+      for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){const s=((y1+j)*W+(x1+i))*4,t=(j*rw+i)*3;buf[t]=data[s];buf[t+1]=data[s+1];buf[t+2]=data[s+2]}
+      const tmp=new Float32Array(buf.length);
+      for(let it=0;it<Math.max(150,S.strength*160);it++){
+        for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+          const k=j*rw+i;if(!mask[k])continue;
+          const u=(j>0?j-1:j)*rw+i,d=(j<rh-1?j+1:j)*rw+i,l=j*rw+(i>0?i-1:i),r=j*rw+(i<rw-1?i+1:i);
+          for(let ch=0;ch<3;ch++)tmp[k*3+ch]=(buf[u*3+ch]+buf[d*3+ch]+buf[l*3+ch]+buf[r*3+ch])*0.25;
+        }
+        for(let k=0;k<rw*rh;k++)if(mask[k]){buf[k*3]=tmp[k*3];buf[k*3+1]=tmp[k*3+1];buf[k*3+2]=tmp[k*3+2]}
+      }
+      for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){const k=j*rw+i;if(!mask[k])continue;
+        const d=((y1+j)*W+(x1+i))*4;data[d]=buf[k*3];data[d+1]=buf[k*3+1];data[d+2]=buf[k*3+2]}
+    }
   });
+  cx.putImageData(imgData,0,0);
   return c.toDataURL('image/png');
 }
 function pickAvg(d){

@@ -10,6 +10,21 @@
   align-items: center;
   margin-bottom: 28rpx;
 }
+.hero-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+.nav-next {
+  flex-shrink: 0;
+  padding: 8rpx 20rpx;
+  color: #0F9E8E;
+  font-size: 22rpx;
+  border: 2rpx solid rgba(15,158,142,0.35);
+  border-radius: 999rpx;
+  background: rgba(15,158,142,0.06);
+}
 .brand {
   font-size: 40rpx;
   font-weight: 700;
@@ -98,6 +113,30 @@
   flex-wrap: wrap;
   gap: 12rpx;
   margin-top: 20rpx;
+}
+.tool-row,
+.mini-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12rpx;
+  width: 100%;
+}
+.tool-item {
+  flex: 1 1 calc(25% - 9rpx);
+  box-sizing: border-box;
+  padding: 14rpx 0;
+  text-align: center;
+  font-size: 23rpx;
+  color: #5B6675;
+  background: #F5F7F9;
+  border: 2rpx solid #E7EBF0;
+  border-radius: 12rpx;
+}
+.tool-item.active {
+  color: #0B7A6E;
+  font-weight: 600;
+  background: rgba(15,158,142,0.10);
+  border-color: #0F9E8E;
 }
 
 .section-label {

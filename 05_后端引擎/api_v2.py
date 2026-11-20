@@ -40,6 +40,9 @@ from engines.opencv_engine import OpenCVEngine
 _TASKS: dict[str, dict] = {}
 _TASK_LIMIT = 200  # 上限：防止长跑内存无限增长，超出后淘汰最早任务
 
+# 与权威 HTML CONFIG.autoIterations 一致：三档强度对应的迭代次数
+CONFIG_ITERS = {1: 120, 2: 320, 3: 640}
+
 
 def _remember_task(task_id: str, info: dict) -> None:
     """写入任务状态并限制总量（简单 FIFO 淘汰）。"""
@@ -144,25 +147,16 @@ def parse_polygons(polygons: str) -> tuple[list[list[tuple[float, float]]], str 
     return out, None
 
 
-def polygon_inpaint(image: Image.Image, polygons: list[list[tuple[float, float]]]) -> Image.Image:
-    """闭合轮廓内去除目标：用 OpenCV TELEA 从边界向内扩散，还原周边衣服/背景色。
+def polygon_inpaint(image: Image.Image, polygons: list[list[tuple[float, float]]],
+                    mode: str = "smart", iters: int = 320, sharpen: bool = True) -> Image.Image:
+    """闭合线条内去除目标：与权威 HTML（11:06 定稿版）lineRemove 逐项对齐。
 
-    与前端 polygonRemove 行为一致：只改轮廓内像素，轮廓外逐字节不变。
+    只改轮廓内像素，线条外逐字节不变；三模式 smart/average/texture 与
+    ROI 外扩 28%/min8、坐标取整、迭代下限 150、mask 限定锐化全部一致。
+    实现位于 engines/line_inpaint.py（纯 numpy，不依赖 OpenCV）。
     """
-    if np is None:
-        raise RuntimeError("轮廓去除需要 numpy")
-    if not polygons:
-        return image
-    src = np.asarray(image.convert("RGB"))
-    H, W = src.shape[:2]
-    bgr = cv2.cvtColor(src, cv2.COLOR_RGB2BGR)
-    out = bgr.copy()
-    for pts in polygons:
-        mask = np.zeros((H, W), dtype=np.uint8)
-        cv2.fillPoly(mask, [np.array([[int(x), int(y)] for x, y in pts], dtype=np.int32)], 255)
-        # TELEA 只改写 mask 内像素，颜色从 mask 外周边采样扩散进来
-        out = cv2.inpaint(out, mask, 3, cv2.INPAINT_TELEA)
-    return Image.fromarray(cv2.cvtColor(out, cv2.COLOR_BGR2RGB), "RGB")
+    from engines.line_inpaint import polygon_inpaint as _line_inpaint
+    return _line_inpaint(image, polygons, mode=mode, iters=iters, sharpen=sharpen)
 
 
 def compose_strict(original: Image.Image, repaired: Image.Image, rects: list[dict]) -> Image.Image:
@@ -417,13 +411,14 @@ async def process_fusion(
             return JSONResponse({"error": "轮廓去除需提供 polygon 闭合轮廓"}, status_code=400)
         if ctx.image is None:
             return JSONResponse({"error": "轮廓去除需上传原图"}, status_code=400)
-        if cv2 is None:
-            return JSONResponse({"error": "轮廓去除需要 OpenCV（请安装 opencv-python-headless）"}, status_code=500)
+        # 解析修复框架（与 inpaint 模式一致：smart/average/texture，prompt 按提示词推断）
+        fw_used, fw_info = resolve_framework(framework, prompt)
         t0 = time.time()
         try:
-            restored = polygon_inpaint(ctx.image, polys)
+            restored = polygon_inpaint(ctx.image, polys, mode=fw_used,
+                                       iters=CONFIG_ITERS.get(strength, 320))
         except Exception as e:
-            return JSONResponse({"error": f"轮廓去除失败: {e}"}, status_code=500)
+            return JSONResponse({"error": f"线条去除失败: {e}"}, status_code=500)
         elapsed = (time.time() - t0) * 1000
         _remember_task(ctx.task_id, {
             "status": "succeeded", "effect": "contour", "elapsed_ms": elapsed,
@@ -434,8 +429,8 @@ async def process_fusion(
             headers={
                 "X-Task-Id": ctx.task_id,
                 "X-Effect-Used": "contour",
-                "X-Framework-Used": "",
-                "X-Prompt-Intent": json.dumps("", ensure_ascii=True),
+                "X-Framework-Used": fw_used,
+                "X-Prompt-Intent": json.dumps(fw_info["intent"], ensure_ascii=True),
                 "X-Strict-Box": "true",
                 "X-Elapsed-Ms": str(round(elapsed, 1)),
                 "Access-Control-Expose-Headers": (

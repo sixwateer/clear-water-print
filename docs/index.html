@@ -9,8 +9,7 @@
   ============================================================
   特点：纯前端单文件，双击用浏览器打开即可使用，无需安装任何东西，
         不联网、不上传，图片只在你的电脑里处理。
-  算法：拉普拉斯扩散修复（等价于传统 inpainting 扩散，对文字水印能
-        彻底去除、不留残影；纯色/渐变/纹理背景均适用）。
+  算法：拉普拉斯扩散修复（对纯色/渐变背景的小水印效果最好）。
   修改：所有文案与参数集中在下方 CONFIG 与 CSS 的 :root 中。
   合规：仅用于处理你有权处理的自有内容。
   ============================================================
@@ -36,6 +35,11 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 .logo svg{width:20px;height:20px}
 .tag-version{font-size:11px;font-weight:600;color:var(--primary-dark);background:rgba(15,158,142,.1);padding:3px 9px;border-radius:12px;margin-left:4px}
 .nav-tip{font-size:12px;color:var(--ink-3)}
+.nav-right{display:flex;align-items:center;gap:16px}
+.nav-next{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--primary);color:var(--primary-dark);background:rgba(15,158,142,.07);padding:7px 14px;border-radius:9px;font-size:12.5px;font-weight:600;cursor:pointer;transition:all .2s;white-space:nowrap}
+.nav-next:hover{background:var(--primary);color:#fff;transform:translateY(-1px)}
+.nav-next svg{width:14px;height:14px}
+@media(max-width:560px){.nav-tip{display:none}}
 
 /* HERO */
 .hero{text-align:center;padding:46px 0 26px}
@@ -76,6 +80,24 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 .dropzone .browse{color:var(--primary);font-weight:600}
 .example-btn{margin-top:16px;border:1px solid var(--primary);color:var(--primary-dark);background:rgba(15,158,142,.06);padding:9px 18px;border-radius:9px;font-size:13px;font-weight:600;cursor:pointer;transition:all .2s}
 .example-btn:hover{background:var(--primary);color:#fff}
+/* 示例选择器：一组可勾选的场景卡片，风格与主题一致 */
+.example-picker{margin-top:14px;width:100%;display:none}
+.example-picker.show{display:block}
+.example-picker-hd{font-size:11.5px;color:var(--ink-3);margin-bottom:9px;display:flex;align-items:center;justify-content:space-between}
+.example-picker-hd .reset{border:none;background:none;color:var(--primary);font-size:11.5px;cursor:pointer;padding:0}
+.example-picker-hd .reset:hover{text-decoration:underline}
+.example-opts{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.example-opt{position:relative;display:flex;align-items:center;gap:9px;padding:9px 10px;border:1.5px solid var(--line);border-radius:10px;background:var(--surface);cursor:pointer;transition:all .18s;text-align:left;user-select:none}
+.example-opt:hover{border-color:var(--primary)}
+.example-opt.on{border-color:var(--primary);background:rgba(15,158,142,.07);box-shadow:0 2px 8px rgba(15,158,142,.12)}
+.example-opt .thumb{width:38px;height:30px;border-radius:6px;flex-shrink:0;background-size:cover;background-position:center;border:1px solid rgba(0,0,0,.06)}
+.example-opt .meta{min-width:0;flex:1}
+.example-opt .ttl{display:block;font-size:12px;font-weight:600;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+.example-opt .sub{display:block;font-size:10.5px;color:var(--ink-3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;line-height:1.4}
+.example-opt input{position:absolute;opacity:0;pointer-events:none}
+.example-opt.on::after{content:"✓";position:absolute;top:-6px;right:-6px;width:17px;height:17px;border-radius:50%;background:var(--primary);color:#fff;font-size:11px;line-height:17px;text-align:center;box-shadow:0 1px 4px rgba(0,0,0,.15)}
+.example-next{margin-top:10px;width:100%;border:1px solid var(--primary);color:var(--primary-dark);background:rgba(15,158,142,.06);padding:8px 14px;border-radius:9px;font-size:12px;font-weight:600;cursor:pointer;transition:all .2s}
+.example-next:hover{background:var(--primary);color:#fff}
 .privacy-note{margin-top:12px;font-size:11.5px;color:var(--ink-3);display:flex;align-items:center;gap:5px}
 
 /* 画布 */
@@ -88,10 +110,6 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 .tool.active{background:var(--primary);color:#fff;border-color:var(--primary)}
 .tool svg{width:14px;height:14px}
 .tool-hint{margin-left:auto;font-size:11.5px;color:var(--ink-3)}
-/* 选框读数 / 智能识别徽标（与后端版统一视觉规范） */
-.box-readout{font-size:11.5px;color:var(--ink-3);margin-top:10px;line-height:1.5;min-height:17px}
-.detect-badge{display:inline-flex;align-items:center;gap:6px;font-size:11.5px;font-weight:600;padding:5px 12px;border-radius:20px;margin-top:10px;transition:all .25s}
-.detect-badge.ok{background:rgba(15,158,142,.11);color:var(--primary-dark)}
 
 /* 面板 */
 .panel-section{padding:18px 20px;border-bottom:1px solid var(--line)} .panel-section:last-child{border-bottom:none}
@@ -136,19 +154,6 @@ select.select{width:100%;padding:9px 12px;border:1px solid var(--line);border-ra
 .tips{margin-top:14px;padding:14px 16px;background:rgba(91,110,225,.06);border:1px solid rgba(91,110,225,.16);border-radius:10px;font-size:12px;color:var(--ink-2);line-height:1.7}
 .tips b{color:var(--accent)}
 
-/* 保存面板（移动端/下载受限时的兜底） */
-.save-sheet{position:fixed;inset:0;background:rgba(16,22,32,.55);z-index:60;display:none;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px)}
-.save-sheet.show{display:flex}
-.save-sheet-inner{width:100%;max-width:420px;background:var(--surface);border-radius:18px;box-shadow:0 18px 60px rgba(0,0,0,.28);padding:18px 18px 20px}
-.ss-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px}
-.ss-title{font-size:16px;font-weight:700}
-.ss-close{width:30px;height:30px;border:none;border-radius:8px;background:#EEF1F5;color:var(--ink-2);font-size:20px;line-height:1;cursor:pointer}
-.ss-close:hover{background:#E2E7EE}
-.ss-tip{font-size:12.5px;color:var(--ink-2);line-height:1.6;margin-bottom:12px}
-.ss-tip b{color:var(--primary-dark)}
-.save-sheet img{display:block;width:100%;max-height:55vh;object-fit:contain;background:#0E141B;border-radius:10px}
-.ss-note{font-size:11.5px;color:var(--ink-3);line-height:1.6;margin:10px 0 0}
-
 /* Toast / 页脚 */
 .toast{position:fixed;bottom:28px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--ink);color:#fff;padding:12px 22px;border-radius:11px;font-size:13px;opacity:0;transition:all .35s cubic-bezier(.2,.8,.2,1);z-index:50;box-shadow:0 8px 30px rgba(0,0,0,.2)}
 .toast.show{transform:translateX(-50%) translateY(0);opacity:1}
@@ -156,12 +161,7 @@ footer{text-align:center;padding:26px 0 34px;color:var(--ink-3);font-size:12px;b
 footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
 @media(max-width:860px){
   .workspace{grid-template-columns:1fr} .hero h1{font-size:28px}
-  .flow-line{display:none} .help-grid{grid-template-columns:1fr}
-  /* 窄屏：导航只留品牌；步骤条改 2×2 网格，否则 flex:1 会把文字压成竖排 */
-  .nav-tip{display:none} .brand{font-size:17px;white-space:nowrap}
-  .flow{display:grid;grid-template-columns:repeat(2,1fr);gap:12px 10px;padding:14px 16px}
-  .flow-step{flex:none;white-space:nowrap;font-size:12.5px;gap:7px}
-  .flow-step .ic{width:26px;height:26px}
+  .flow{flex-wrap:wrap;gap:10px} .flow-line{display:none} .help-grid{grid-template-columns:1fr}
 }
 </style>
 </head>
@@ -173,7 +173,10 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
       <div class="logo"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.5-7-4.5-7-9V6l7-3z"/><path d="M9 12l2 2 4-4"/></svg></div>
       净像 <span class="tag-version">普通版 · 双击即用</span>
     </div>
-    <div class="nav-tip">无需安装 · 不联网 · 图片只在本机处理</div>
+    <div class="nav-right">
+      <button class="nav-next" id="btnNextTop" type="button" title="切换到下一张图片"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>下一页</button>
+      <div class="nav-tip">无需安装 · 不联网 · 图片只在本机处理</div>
+    </div>
   </div>
 </header>
 
@@ -210,22 +213,24 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
           <div class="upload-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg></div>
           <h3>把图片拖到这里，或点击上传</h3>
           <p><span class="browse">选择图片</span> · 支持 JPG / PNG / WEBP</p>
-          <button class="example-btn" id="btnExample" type="button">没有图片？点我用内置示例体验</button>
+          <button class="example-btn" id="btnExample" type="button">没有图片？点我展开内置示例</button>
+          <div class="example-picker" id="examplePicker">
+            <div class="example-picker-hd"><span>勾选一个场景，或点「换一张」浏览</span><button class="reset" id="btnExampleReset" type="button">收起</button></div>
+            <div class="example-opts" id="exampleOpts"></div>
+            <button class="example-next" id="btnExampleNext" type="button">换一张示例 →</button>
+          </div>
           <div class="privacy-note"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>图片全程留在你的浏览器，不会上传</div>
           <input type="file" id="fileInput" accept="image/*" hidden>
         </div>
         <div class="editor" id="editor">
           <div class="canvas-wrap"><canvas id="stage"></canvas></div>
           <div class="toolbar">
-            <button class="tool active" id="toolRect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>矩形框选</button>
-            <button class="tool" id="toolLine" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 17l5-8 5 5 4-7 4 4"/></svg>轮廓去除</button>
-            <button class="tool" id="toolAuto" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h6M4 4v6M20 20h-6M20 20v-6"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>自动框右下角</button>
-            <button class="tool" id="toolDel" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14"/></svg>删当前框</button>
+            <button class="tool active" id="toolRect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="5" width="18" height="14" rx="1"/></svg>框选水印</button>
+            <button class="tool" id="toolLine" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"><path d="M4 16l5-9 6 5 5-8"/></svg>线条轮廓</button>
+            <button class="tool" id="toolUndo" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 14L4 9l5-5"/><path d="M4 9h11a5 5 0 0 1 0 10h-3"/></svg>撤销一个框</button>
             <button class="tool" id="toolClear" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M6 6l1 14h10l1-14"/></svg>清除全部</button>
-            <button class="tool" id="toolReselect" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg>更换图片</button>
-            <span class="tool-hint">最多三个区域 · 矩形/轮廓都是去除还原</span>
+            <span class="tool-hint">拖拽画矩形框；点框选中，拖内部移动、拖小手柄缩放</span>
           </div>
-          <div class="box-readout" id="boxReadout">拖拽画矩形框，或选「轮廓去除」沿目标画一圈；区域内去除后按衣服/背景色还原</div>
         </div>
       </div>
     </div>
@@ -235,16 +240,14 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
       <div class="panel-section">
         <div class="panel-label"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.9l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-2.9 1.2V21a2 2 0 1 1-4 0v-.1A1.7 1.7 0 0 0 7 19.4a1.7 1.7 0 0 0-1.9.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1A1.7 1.7 0 0 0 2 15H2a2 2 0 1 1 0-4h.1"/></svg>修复方式</div>
         <select class="select" id="mode">
-          <option value="auto">智能识别 · 自动选最合适的方式（推荐）</option>
-          <option value="smart">智能修复 · 纯色/渐变背景无痕扩散</option>
+          <option value="smart">智能修复（推荐）· 适合纯色/渐变背景</option>
           <option value="average">快速填充 · 适合小面积水印</option>
-          <option value="texture">纹理重建 · 适合木纹/草地等纹理背景</option>
+          <option value="texture">纹理平移 · 适合重复纹理背景</option>
         </select>
         <div class="mode-desc" id="modeDesc"></div>
-        <div id="detectBadge" class="detect-badge ok" style="display:none"></div>
         <div class="opt-row" style="margin-top:10px"><span>修复后轻度锐化</span><div class="switch on" id="swSharpen"></div></div>
         <div class="opt-row" style="display:block">
-          <div style="display:flex;justify-content:space-between"><span>修复力度</span><span class="val" id="iterVal">标准</span></div>
+          <div style="display:flex;justify-content:space-between"><span>修复力度（ iterations ）</span><span class="val" id="iterVal">标准</span></div>
           <input type="range" class="range" id="iterRange" min="1" max="3" value="2">
         </div>
       </div>
@@ -281,7 +284,6 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
         <div class="result-actions">
           <button class="btn-primary" style="width:auto;padding:12px 28px" onclick="downloadResult()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>下载修复结果</button>
           <button class="tool" style="padding:12px 24px" onclick="resetAll()">处理下一张</button>
-          <button class="tool" style="padding:12px 24px" onclick="resetAll(true)">重新选图</button>
         </div>
       </div>
     </div>
@@ -290,35 +292,22 @@ footer .disc{max-width:640px;margin:0 auto 8px;line-height:1.7}
   <section class="help">
     <div class="card-head" style="border:none;padding-left:0"><div class="card-title">三步就能用好</div></div>
     <div class="help-grid">
-      <div class="help-card"><div class="n">1</div><h4>上传或拖入图片</h4><p>也可以点“用内置示例体验”，先看看效果。图片不会上传到任何地方。</p></div>
-      <div class="help-card"><div class="n">2</div><h4>框住水印区域</h4><p>在图片上按住鼠标拖拽，把水印框起来。框得贴合一些，效果更好。框内拖动可移动，手柄可缩放。</p></div>
+      <div class="help-card"><div class="n">1</div><h4>上传或拖入图片</h4><p>也可以点“展开内置示例”，勾选一个场景先看看效果。图片不会上传到任何地方。</p></div>
+      <div class="help-card"><div class="n">2</div><h4>框住或圈住目标</h4><p>矩形框：拖拽框住水印。线条轮廓：沿目标画一圈闭合线条（只显示单条线）。两者交互一致：点内部选中并拖动可整体移动，拖四角/四边的小方点可自由放大或缩小，线条轮廓会随框同步缩放。区域内目标去除后按周边背景或衣物纹理还原，框外不变。两种方式可混用。</p></div>
       <div class="help-card"><div class="n">3</div><h4>点修复并下载</h4><p>勾选授权确认，点“开始修复”。拖动白线对比，满意后点“下载修复结果”。</p></div>
     </div>
     <div class="tips">
-      <b>效果小贴士：</b>本工具对<b>纯色或渐变背景</b>上的水印（如示例图）效果最好，能几乎无痕还原；对照片里复杂纹理上的水印，建议把框选范围画得紧一点，修复会自动向外扩一点吃掉边缘残影。想处理视频、或追求专业级的复杂背景修复，请使用项目里的“进阶版 + 后端引擎”。
+      <b>效果小贴士：</b>本工具对<b>纯色或渐变背景</b>上的水印（如示例图）效果最好，能几乎无痕还原；对照片里复杂纹理上的水印，建议把框选范围画得紧一点，或试试“纹理平移”。想处理视频、或追求专业级的复杂背景修复，请使用项目里的“进阶版 + 后端引擎”。
     </div>
   </section>
 </main>
 
 <footer>
   <p class="disc">本工具仅用于你有权处理的自有内容。请遵守平台条款与相关法律法规。普通版为纯前端实现，复杂场景请用进阶版。</p>
-  <p>净像 Watermark Studio · 普通版 v1.1 · 纯前端单文件</p>
+  <p>净像 Watermark Studio · 普通版 v1.0 · 纯前端单文件</p>
 </footer>
 
 <div class="toast" id="toast"></div>
-
-<!-- 保存面板：移动端或浏览器禁用自动下载时，展示图片供长按保存 -->
-<div class="save-sheet" id="saveSheet" role="dialog" aria-modal="true" aria-label="保存修复结果">
-  <div class="save-sheet-inner">
-    <div class="ss-head">
-      <div class="ss-title">保存修复结果</div>
-      <button class="ss-close" id="ssClose" type="button" aria-label="关闭">×</button>
-    </div>
-    <div class="ss-tip" id="ssTip">如未自动下载，请<b>长按下方图片</b>并选择「保存到相册」；电脑上可右键图片选「图片另存为」。</div>
-    <img id="ssImg" alt="修复结果，长按可保存">
-    <div class="ss-note">保存后即完成。若图片过大导致保存失败，可换用 Chrome / Edge 浏览器重试。</div>
-  </div>
-</div>
 
 <script>
 /* ============================================================
@@ -330,24 +319,42 @@ const CONFIG = {
   sharpenAmount: 0.25,         // 轻度锐化强度（0=关闭）
   strengthLabel: { 1: '快速', 2: '标准', 3: '精细' },
   modeDesc: {
-    auto:    '框选后自动分析框周围背景，挑选合适的重建方式，一般不用手动改。',
     smart:   '像“补齐拼图”一样，根据水印四周的颜色向内推算，最适合纯色、渐变或柔和背景。',
     average: '直接取边缘颜色平铺填充，速度最快，适合面积很小、背景单一的水印。',
-    texture: '在扩散重建的基础上，从邻近干净区域补一点细微纹理，减轻“涂抹感”。'
+    texture: '从水印旁边复制相似纹理过来，适合草地、砖墙等有重复图案的背景。'
   },
-  exampleWatermarkText: ['@我的小红书', '抖音号: demo001'] // 内置示例图上的水印文字（用于示例生成提示）
+  exampleWatermarkText: ['@我的小红书', '抖音号: demo001'], // 内置示例图上的水印文字（用于示例生成提示）
+  // 内置示例场景：程序生成、风格统一（柔和渐变 + 主题色），各自对应一种修复模式
+  examples: [
+    {id:'soft',  title:'柔和渐变署名',     sub:'渐变背景 · 半透明白字', mode:'smart',   thumb:['#7EC8E3','#C9A7E8','#F3B7A0']},
+    {id:'flat',  title:'纯色底白字',       sub:'纯色背景 · 小面积标记', mode:'average', thumb:['#5B6EE1','#7C8CEC','#A9B4F5']},
+    {id:'grain', title:'重复纹理角标',     sub:'条纹纹理 · 重复图案',   mode:'texture', thumb:['#D9B98C','#C9A06E','#B98A54']}
+  ]
+};
+// 修复参数集中命名：数值与矩形框 smartFill / fillAverage / fillTexture 完全一致，
+// 修改这里时必须同步矩形路径；仅用于线条路径的可读性，不改变 CONFIG 结构。
+const FILL={
+  minBox:6,          // 最小框宽/高（与矩形创建判定 w>6 && h>6 对齐）
+  expMin:8, expRatio:0.28,       // 智能外扩：max(8, round(min(w,h)*0.28))
+  pad:3, texOffset:4,            // 平均模式采样环宽度 / 纹理模式上下偏移
+  radMin:7, radMax:15, radDiv:6, // 中值滤波半径范围
+  residualMin:12, thMin:26, thRatio:0.42, pct:0.97, // 笔画判定阈值
+  covLarge:0.04, covTiny:0.004, wideRatio:2.0,      // 整框插值分支条件
+  iterFloor:150, minMask:8       // 扩散迭代下限 / 最小有效掩膜像素
 };
 
 /* ============================================================
    状态
    ============================================================ */
 const S = {
-  img:null, scale:1, rects:[], action:null, handle:null, orig:null, start:null, cur:null,
-  resultData:null, mode:'auto', effectiveMode:'smart', detection:null, sharpen:true, iter:2,
-  // 多框交互：最多 3 个框；tool='line' 时按住鼠标画线，松开取轨迹外接矩形作为自定义框
-  tool:'rect', activeBox:0, linePts:[]
+  img:null, scale:1, rects:[], drawing:false, start:null, cur:null,
+  resultData:null, mode:'smart', sharpen:true, iter:2
 };
-const MAX_BOXES = 3;
+// 线条轮廓的独立状态（不属于 S，不改变现有修复状态结构）
+// sel:{kind:'rect'|'line', index} 选中项；act:{type:'move'|'resize', handle, orig, start} 交互过程
+const lineState={tool:'rect', active:false, pts:[], shapes:[], hover:null, sel:null, act:null};
+// 统一手柄参数：显示为正方形小点，参考之前版本；命中容差按画布缩放放大便于点中
+const HANDLE=8, HIT=12, MIN_BOX=8, HANDLES=['nw','n','ne','e','se','s','sw','w'];
 const $ = id => document.getElementById(id);
 const stage=$('stage'), ctx=stage.getContext('2d',{willReadFrequently:true});
 let baseImage=null;
@@ -356,248 +363,220 @@ let baseImage=null;
    上传 / 内置示例
    ============================================================ */
 const dz=$('dropzone'), fi=$('fileInput');
-let loadSeq=0; // 加载序号：防止快速连续选图时，旧图 onload 后到覆盖新图
 dz.onclick=()=>fi.click();
 dz.ondragover=e=>{e.preventDefault();dz.classList.add('drag')};
 dz.ondragleave=()=>dz.classList.remove('drag');
-dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');e.stopPropagation();if(e.dataTransfer.files&&e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])};
-// 全页拖放：图片已加载后把新图拖到页面任意位置也能直接换图（dropzone 已隐藏时尤其有用）
-const hasFiles=e=>e.dataTransfer&&Array.from(e.dataTransfer.types||[]).indexOf('Files')>=0;
-window.addEventListener('dragover',e=>{if(hasFiles(e))e.preventDefault()});
-window.addEventListener('drop',e=>{
-  if(!hasFiles(e))return;
-  if(dz.contains(e.target))return;             // 交给 dropzone 自己处理，避免重复加载
-  e.preventDefault();
-  const f=e.dataTransfer.files&&e.dataTransfer.files[0];
-  if(f)loadFile(f);
-});
-fi.onchange=e=>{
-  const f=e.target.files&&e.target.files[0];
-  if(f)loadFile(f);
-  // 关键：清空 value，保证“撤销/取消后再次选择同一张图片”仍能触发 change
-  try{e.target.value=''}catch(_){}
+dz.ondrop=e=>{e.preventDefault();dz.classList.remove('drag');if(e.dataTransfer.files[0])loadFile(e.dataTransfer.files[0])};
+fi.onchange=e=>{if(e.target.files[0])loadFile(e.target.files[0])};
+// 内置示例选择器：状态独立于 S，不改动修复状态
+const exampleState={open:false, current:null};
+$('btnExample').onclick=e=>{
+  e.stopPropagation();
+  exampleState.open=!exampleState.open;
+  $('examplePicker').classList.toggle('show',exampleState.open);
+  e.currentTarget.textContent=exampleState.open?'收起内置示例':'没有图片？点我展开内置示例';
+  if(exampleState.open)renderExampleOpts();
 };
-// 用户在选择框点“取消”时不会触发 change；监听 cancel 事件可给出轻量反馈（不破坏状态）
-fi.addEventListener('cancel',()=>{/* 用户取消，保持当前状态不变 */});
-$('btnExample').onclick=e=>{e.stopPropagation();loadExample()};
+
+// 生成示例场景（同一套相对坐标，主图与缩略图风格完全一致；零外部资源）
+function _drawExample(c,mode){
+  const W=c.width,H=c.height,x=c.getContext('2d'),k=W/900;
+  x.save();x.scale(k,k);const w=900,h=600;
+  if(mode==='soft'){
+    const g=x.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,'#7EC8E3');g.addColorStop(.5,'#C9A7E8');g.addColorStop(1,'#F3B7A0');
+    x.fillStyle=g;x.fillRect(0,0,w,h);
+    x.fillStyle='rgba(255,255,255,0.18)';x.beginPath();x.arc(240,205,110,0,7);x.fill();
+    x.fillStyle='rgba(30,60,120,0.14)';x.fillRect(520,380,240,180);
+    x.fillStyle='rgba(255,230,150,0.35)';for(let i=0;i<6;i++){x.beginPath();x.arc(85+i*40,505-i*18,13,0,7);x.fill()}
+    x.font='bold 26px "Microsoft YaHei",sans-serif';x.fillStyle='rgba(255,255,255,0.62)';
+    x.fillText(CONFIG.exampleWatermarkText[0],w-250,h-58);
+    x.fillStyle='rgba(0,0,0,0.32)';roundRect(x,24,22,158,40,10);x.fill();
+    x.font='18px "Microsoft YaHei",sans-serif';x.fillStyle='rgba(255,255,255,0.9)';x.fillText(CONFIG.exampleWatermarkText[1],38,48);
+  }else if(mode==='flat'){
+    const g=x.createLinearGradient(0,0,w,h);
+    g.addColorStop(0,'#5B6EE1');g.addColorStop(.55,'#7C8CEC');g.addColorStop(1,'#A9B4F5');
+    x.fillStyle=g;x.fillRect(0,0,w,h);
+    x.fillStyle='rgba(255,255,255,0.16)';x.beginPath();x.arc(630,180,130,0,7);x.fill();
+    x.fillStyle='rgba(255,255,255,0.92)';x.font='bold 30px "Microsoft YaHei",sans-serif';
+    x.fillText('示例水印',w-210,h-70);x.fillRect(w-210,h-58,150,4);
+    x.fillStyle='rgba(255,255,255,0.8)';x.font='16px "Microsoft YaHei",sans-serif';x.fillText('SAMPLE 2026',w-210,h-36);
+  }else{
+    x.fillStyle='#D9B98C';x.fillRect(0,0,w,h);
+    for(let i=0;i<h;i+=18){x.fillStyle=i%36===0?'rgba(120,80,40,.10)':'rgba(255,255,255,.14)';x.fillRect(0,i,w,18)}
+    x.fillStyle='rgba(90,60,30,0.16)';for(let i=0;i<5;i++)x.fillRect(w*0.1+i*w*0.17,120+(i%2)*60,80,300);
+    x.fillStyle='rgba(255,255,255,0.9)';x.font='bold 22px "Microsoft YaHei",sans-serif';
+    roundRect(x,24,22,150,38,10);x.fill();
+    x.fillStyle='#8A5A28';x.font='bold 18px "Microsoft YaHei",sans-serif';x.fillText('LOGO 示例',36,48);
+  }
+  x.restore();
+}
+function renderExampleOpts(){
+  const box=$('exampleOpts');
+  box.innerHTML=CONFIG.examples.map((ex,i)=>{
+    const tc=document.createElement('canvas');tc.width=450;tc.height=300;_drawExample(tc,ex.id);
+    const thumb=tc.toDataURL('image/png');
+    const on=exampleState.current===i;
+    return '<label class="example-opt'+(on?' on':'')+'" data-i="'+i+'">'+
+      '<input type="checkbox"'+(on?' checked':'')+'>'+
+      '<span class="thumb" style="background-image:url('+thumb+')"></span>'+
+      '<span class="meta"><span class="ttl">'+ex.title+'</span><span class="sub">'+ex.sub+'</span></span></label>';
+  }).join('');
+  box.querySelectorAll('.example-opt').forEach(el=>{
+    el.onclick=e=>{e.preventDefault();e.stopPropagation();loadExample(+el.dataset.i)};
+  });
+}
+function loadExample(i){
+  if(typeof i!=='number'){
+    // 未指定则取第一个，或在上一个之后轮换
+    i=exampleState.current===null?0:(exampleState.current+1)%CONFIG.examples.length;
+  }
+  const ex=CONFIG.examples[i];
+  exampleState.current=i;
+  const c=document.createElement('canvas');c.width=900;c.height=600;_drawExample(c,ex.id);
+  loadImageSrc(c.toDataURL('image/png'),'内置示例·'+ex.title+'.png');
+  // 顺带把示例推荐的修复模式呈现给用户（通过下拉与说明，不触碰 S 之外的状态逻辑）
+  $('mode').value=ex.mode;S.mode=ex.mode;$('modeDesc').textContent=CONFIG.modeDesc[ex.mode];
+  // 刷新勾选高亮
+  if(exampleState.open)renderExampleOpts();
+  setTimeout(()=>toast('已载入「'+ex.title+'」· 已选中建议的修复模式，试试框住水印'),300);
+}
+$('btnExampleNext').onclick=e=>{e.stopPropagation();loadExample()};
+$('btnExampleReset').onclick=e=>{
+  e.stopPropagation();exampleState.open=false;
+  $('examplePicker').classList.remove('show');
+  $('btnExample').textContent='没有图片？点我展开内置示例';
+};
 
 function loadFile(file){
-  if(!file||!file.type||!file.type.startsWith('image/')){toast('请选择 JPG / PNG / WEBP 图片');return}
+  if(!file.type.startsWith('image/')){toast('请选择图片文件');return}
   const reader=new FileReader();
-  reader.onerror=()=>toast('读取图片失败，请重新选择');
-  reader.onload=ev=>loadImageSrc(ev.target.result,file.name||'已选图片');
+  reader.onload=ev=>loadImageSrc(ev.target.result,file.name);
   reader.readAsDataURL(file);
 }
 
-// 程序生成一张带半透明水印的示例图（纯前端、无外部资源、无版权问题）
-function loadExample(){
-  const W=900,H=600;
-  const c=document.createElement('canvas');c.width=W;c.height=H;
-  const x=c.getContext('2d');
-  const g=x.createLinearGradient(0,0,W,H);
-  g.addColorStop(0,'#7EC8E3');g.addColorStop(.5,'#C9A7E8');g.addColorStop(1,'#F3B7A0');
-  x.fillStyle=g;x.fillRect(0,0,W,H);
-  x.fillStyle='rgba(255,255,255,0.18)';x.beginPath();x.arc(240,205,110,0,7);x.fill();
-  x.fillStyle='rgba(30,60,120,0.14)';x.fillRect(520,380,240,180);
-  x.fillStyle='rgba(255,230,150,0.35)';
-  for(let i=0;i<6;i++){x.beginPath();x.arc(85+i*40,505-i*18,13,0,7);x.fill()}
-  // 半透明水印
-  x.font='bold 26px "Microsoft YaHei",sans-serif';x.fillStyle='rgba(255,255,255,0.62)';
-  x.fillText(CONFIG.exampleWatermarkText[0],W-250,H-58);
-  x.fillStyle='rgba(0,0,0,0.32)';roundRect(x,24,22,158,40,10);x.fill();
-  x.font='18px "Microsoft YaHei",sans-serif';x.fillStyle='rgba(255,255,255,0.9)';
-  x.fillText(CONFIG.exampleWatermarkText[1],38,48);
-  loadImageSrc(c.toDataURL('image/png'),'内置示例图.png');
-  setTimeout(()=>toast('已载入示例图：试试框住右下角或左上角的水印'),300);
-}
 function roundRect(x,a,b,w,h,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+h,r);x.arcTo(a+w,b+h,a,b+h,r);x.arcTo(a,b+h,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
 
 function loadImageSrc(src,name){
-  const seq=++loadSeq;
   const img=new Image();
   img.onload=()=>{
-    if(seq!==loadSeq)return; // 已有更新的一次选择，丢弃这次过期结果
-    // 加载新图：完整重置所有“上一轮”状态，避免残留预览/结果/按钮文字
-    resetImageState();
     baseImage=img;
     S.scale=Math.min(1,CONFIG.maxDisplayWidth/img.width);
     stage.width=Math.round(img.width*S.scale);
     stage.height=Math.round(img.height*S.scale);
-    S.rects=[];S.resultData=null;S.activeBox=0;S.linePts=[];
+    S.rects=[];S.resultData=null;
+    lineState.shapes=[];lineState.pts=[];lineState.active=false;lineState.sel=null;lineState.act=null;
     $('fileInfo').textContent=`${name} · ${img.width}×${img.height}`;
-    $('btnText').textContent='开始修复';
     dz.style.display='none';$('editor').classList.add('active');
     setFlow(2);draw();checkReady();
-    // 超大图提示：处理在原图分辨率上进行，像素过多时浏览器内存吃紧
-    const mp=img.width*img.height/1e6;
-    if(mp>16)toast(`图片较大（${mp.toFixed(0)} 百万像素），修复可能需要几秒，请耐心等待`);
-  };
-  img.onerror=()=>{
-    if(seq!==loadSeq)return;
-    // 图片损坏/格式不支持：安全回到上传步骤并提示，不留下半加载状态
-    resetAll();
-    toast('图片加载失败，请换一张图片重试');
   };
   img.src=src;
 }
 
-// 仅重置“图片相关”的会话状态，不动设置项（修复方式/力度等保留）
-// 注意：不递增 loadSeq，避免使刚通过校验的本次加载失效；在途旧加载由调用方递增的 seq 拦截
-function resetImageState(){
-  S.rects=[];S.resultData=null;S.activeBox=0;S.linePts=[];
-  S.action=null;S.orig=null;S.handle=null;S.start=null;S.cur=null;S.detection=null;
-  $('compare').classList.remove('active');
-  clearDetect();updateReadout();
-  closeSaveSheet();
-}
-
 /* ============================================================
-   画布绘制与选框交互（最多 3 个区域 + 矩形/闭合轮廓去除还原 + 整体移动）
-   - 矩形工具：拖拽画框；轮廓工具：按住鼠标沿目标画一圈，两种都做去除并用周边衣服/背景色还原
-    作为「自定义框」（紫色标注），适合勾勒包、挂牌等不规则目标
-   - 框内按下=移动，手柄按下=缩放，空白按下=新增框；满 3 个时替换当前框
-   - 坐标统一为画布显示坐标，进入算法时再除以 S.scale 回到原图像素
+   画布绘制与框选
    ============================================================ */
-const HANDLE=8,HIT=12,MIN_BOX=8,HANDLES=['nw','n','ne','e','se','s','sw','w'];
-// 画布像素 ÷ CSS 像素。手机等小屏上画布被 CSS 缩小显示，手柄尺寸与命中容差要按此放大，
-// 否则 8px 手柄在屏上只有 3px，手指根本点不中。
-function pxK(){const b=stage.getBoundingClientRect();return b.width>0?stage.width/b.width:1}
+// 矩形与线条共用的标注样式：描边颜色/透明度/线宽/虚线/端点连接完全一致
+const MARK={
+  stroke:'rgba(15,158,142,.95)', strokeSel:'rgba(91,110,225,1)',
+  fill:'rgba(15,158,142,.13)',   fillSel:'rgba(91,110,225,.13)',
+  preview:'rgba(91,110,225,1)',  previewFill:'rgba(91,110,225,.16)',
+  dash:[6,4]
+};
+function markWidth(){return Math.max(2,Math.round(2*pxK()))}
+// 统一画笔：矩形(strokeRect)与线条(path)走同一套属性，避免两套不一致实现
+function withMark(stroke,fill,fn){
+  ctx.save();
+  ctx.strokeStyle=stroke;ctx.lineWidth=markWidth();
+  ctx.setLineDash(MARK.dash);ctx.lineJoin='round';ctx.lineCap='round';
+  if(fill)ctx.fillStyle=fill;
+  fn();
+  ctx.restore();
+}
 function draw(){
   ctx.clearRect(0,0,stage.width,stage.height);
   if(!baseImage)return;
   ctx.drawImage(baseImage,0,0,stage.width,stage.height);
-  const k=pxK(),hs=Math.max(HANDLE,Math.round(11*k)),lw=Math.max(2,Math.round(1.6*k));
+  // 图层顺序统一：未选中项在底层、选中高亮置顶，矩形与线条一视同仁
+  paintMarks(false);
+  paintMarks(true);
+  // 正在新建的预览
+  if(S.drawing&&S.cur&&lineState.tool==='rect')drawRect(normRect(S.start,S.cur),MARK.preview,MARK.previewFill);
+  if(lineState.active&&lineState.pts.length>1)strokePath(lineState.pts,true,MARK.preview);
+  // 选中项手柄：矩形与线条共用同一套小方点
+  const b=selBox();
+  if(b)drawHandles(b);
+}
+function paintMarks(selected){
   S.rects.forEach((r,i)=>{
-    // 闭合轮廓：只画用户实际画的闭合线条，不画外接矩形块、不提供缩放手柄
-    if(r.points&&r.points.length>2){drawOutline(r,r.points,i===S.activeBox,i);return}
-    drawBox(r,undefined,undefined,'框'+(i+1));
-    if(i!==S.activeBox)return;
-    for(const h of HANDLES){
-      const p=handlePos(r,h);
-      ctx.fillStyle='#fff';ctx.strokeStyle='#0F9E8E';ctx.lineWidth=lw;
-      ctx.fillRect(p.x-hs/2,p.y-hs/2,hs,hs);
-      ctx.strokeRect(p.x-hs/2,p.y-hs/2,hs,hs);
-    }
+    if(isSel('rect',i)!==selected)return;
+    drawRect(r,isSel('rect',i)?MARK.strokeSel:MARK.stroke,isSel('rect',i)?MARK.fillSel:MARK.fill);
   });
-  if(S.action==='draw'&&S.cur)drawBox(normRect(S.start,S.cur),'rgba(91,110,225,1)','rgba(91,110,225,.16)');
-  if(S.action==='line'&&S.linePts.length>1){
-    ctx.save();ctx.strokeStyle='#5B6EE1';ctx.lineWidth=Math.max(2,lw);
-    ctx.setLineDash([5,3]);ctx.beginPath();ctx.moveTo(S.linePts[0].x,S.linePts[0].y);
-    for(let i=1;i<S.linePts.length;i++)ctx.lineTo(S.linePts[i].x,S.linePts[i].y);
-    ctx.stroke();ctx.restore();
-  }
+  drawLineShapes(selected);
 }
-function drawBox(r,stroke,fill,label){
-  const isLine=r.kind==='line';
-  ctx.strokeStyle=stroke||(isLine?'rgba(91,110,225,.95)':'rgba(15,158,142,.95)');
-  ctx.lineWidth=2;ctx.setLineDash([6,4]);
-  ctx.strokeRect(r.x,r.y,r.w,r.h);
-  ctx.fillStyle=fill||(isLine?'rgba(91,110,225,.13)':'rgba(15,158,142,.13)');
-  ctx.fillRect(r.x,r.y,r.w,r.h);
-  ctx.setLineDash([]);
-  if(!label)return;
-  ctx.save();ctx.font='11px "Microsoft YaHei",sans-serif';
-  const tw=ctx.measureText(label).width;
-  const lx=clamp(r.x+4,2,stage.width-tw-8);
-  const ly=r.y-5<12?r.y+15:r.y-5;   // 贴顶时把标签放到框内，避免被裁掉
-  ctx.fillStyle=isLine?'#5B6EE1':'#0F9E8E';
-  ctx.fillRect(lx-3,ly-11,tw+6,15);
-  ctx.fillStyle='#fff';ctx.fillText(label,lx,ly);ctx.restore();
+function isSel(kind,index){const s=lineState.sel;return !!s&&s.kind===kind&&s.index===index}
+function selBox(){
+  const s=lineState.sel;if(!s)return null;
+  if(s.kind==='rect')return S.rects[s.index]||null;
+  const pts=lineState.shapes[s.index];return pts&&pts.length?shapeBox(pts):null;
 }
-function normRect(a,b){return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(b.x-a.x),h:Math.abs(b.y-a.y)}}
-// 闭合轮廓的绘制：严格沿用户轨迹闭合（外接矩形只用于交互命中，不画出来）
-function drawOutline(r,pts,active,index){
-  const lw=Math.max(2,Math.round(1.8*pxK()));
+function drawHandles(b){
+  const k=pxK(),hs=Math.max(HANDLE,Math.round(8*k));
   ctx.save();
-  ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
-  for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
-  ctx.closePath();
-  ctx.strokeStyle=active?'rgba(91,110,225,1)':'rgba(15,158,142,.95)';
-  ctx.lineWidth=lw;ctx.setLineDash(active?[]:[6,4]);ctx.stroke();
-  ctx.fillStyle=active?'rgba(91,110,225,.10)':'rgba(15,158,142,.06)';ctx.fill();
-  ctx.setLineDash([]);
-  ctx.font='11px "Microsoft YaHei",sans-serif';
-  const label='轮廓'+(index+1),tw=ctx.measureText(label).width;
-  const lx=clamp(r.x+4,2,stage.width-tw-8),ly=r.y-5<12?r.y+15:r.y-5;
-  ctx.fillStyle='#5B6EE1';ctx.fillRect(lx-3,ly-11,tw+6,15);
-  ctx.fillStyle='#fff';ctx.fillText(label,lx,ly);
+  for(const h of HANDLES){
+    const p=handlePos(b,h);
+    ctx.fillStyle='#fff';ctx.strokeStyle='rgba(91,110,225,1)';ctx.lineWidth=Math.max(1.6,Math.round(1.6*k));
+    ctx.fillRect(p.x-hs/2,p.y-hs/2,hs,hs);ctx.strokeRect(p.x-hs/2,p.y-hs/2,hs,hs);
+  }
   ctx.restore();
 }
+// 只描线条轮廓，不产生任何填充块或矩形；样式由 withMark 统一提供，与矩形框完全一致
+function strokePath(pts,close,color){
+  if(!pts||pts.length<2)return;
+  withMark(color,null,()=>{
+    ctx.beginPath();ctx.moveTo(pts[0].x,pts[0].y);
+    for(let i=1;i<pts.length;i++)ctx.lineTo(pts[i].x,pts[i].y);
+    if(close)ctx.closePath();
+    ctx.stroke();
+  });
+}
+function drawLineShapes(selected){
+  lineState.shapes.forEach((pts,i)=>{
+    if(isSel('line',i)!==selected)return;
+    // 纯单条线：无填充/包围框/标签，描边颜色/线宽/虚线/端点与矩形框共用同一常量
+    strokePath(pts,true,isSel('line',i)?MARK.strokeSel:MARK.stroke);
+  });
+}
+function drawRect(r,stroke,fill){
+  withMark(stroke,fill,()=>{
+    ctx.strokeRect(r.x,r.y,r.w,r.h);
+    if(fill)ctx.fillRect(r.x,r.y,r.w,r.h);
+  });
+}
+function normRect(a,b){return{x:Math.min(a.x,b.x),y:Math.min(a.y,b.y),w:Math.abs(b.x-a.x),h:Math.abs(b.y-a.y)}}
+function pos(e){const b=stage.getBoundingClientRect();const cx=e.touches?e.touches[0].clientX:e.clientX,cy=e.touches?e.touches[0].clientY:e.clientY;return{x:(cx-b.left)*(stage.width/b.width),y:(cy-b.top)*(stage.height/b.height)}}
+
+// —— 统一的手柄 / 移动交互：矩形与线条共用；线条缩放时轮廓点随框同步，修复区域随之变化 ——
+function pxK(){const b=stage.getBoundingClientRect();return b.width>0?stage.width/b.width:1}
 function clamp(v,lo,hi){return Math.max(lo,Math.min(hi,v))}
-function pos(e){
-  const b=stage.getBoundingClientRect();
-  const t=e.touches&&e.touches[0]?e.touches[0]:(e.changedTouches&&e.changedTouches[0]?e.changedTouches[0]:e);
-  return{x:(t.clientX-b.left)*(stage.width/b.width),y:(t.clientY-b.top)*(stage.height/b.height)};
+// 线条的外接矩形：只用于交互命中与手柄定位，绝不画出、也不参与像素修复
+function shapeBox(pts){
+  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
+  for(const p of pts){x1=Math.min(x1,p.x);y1=Math.min(y1,p.y);x2=Math.max(x2,p.x);y2=Math.max(y2,p.y)}
+  return{x:x1,y:y1,w:x2-x1,h:y2-y1};
 }
 function handlePos(r,h){
   const x=r.x,y=r.y,w=r.w,ht=r.h,cx=x+w/2,cy=y+ht/2;
   return({nw:{x,y},n:{x:cx,y},ne:{x:x+w,y},e:{x:x+w,y:cy},se:{x:x+w,y:y+ht},s:{x:cx,y:y+ht},sw:{x,y:y+ht},w:{x,y:cy}})[h];
 }
 function hitHandle(p,r){
-  const k=pxK();
-  // 容差保证手指命中区约 44 CSS px 见方；小框时收紧到短边 1/3，避免 8 个手柄的命中区糊成一片
-  const lim=Math.max(MIN_BOX,Math.min(r.w,r.h)/3);
-  const hit=Math.min(Math.max(HIT,Math.round(22*k)),lim);
-  for(const h of HANDLES){const q=handlePos(r,h);if(Math.abs(p.x-q.x)<=hit&&Math.abs(p.y-q.y)<=hit)return h}return null
+  const k=pxK(),lim=Math.max(MIN_BOX,Math.min(r.w,r.h)/3);
+  const hit=Math.min(Math.max(HIT,Math.round(14*k)),lim);
+  for(const h of HANDLES){const q=handlePos(r,h);if(Math.abs(p.x-q.x)<=hit&&Math.abs(p.y-q.y)<=hit)return h}
+  return null;
 }
 function inBox(p,r){return p.x>=r.x&&p.x<=r.x+r.w&&p.y>=r.y&&p.y<=r.y+r.h}
 function setCursor(c){stage.style.cursor=c}
-function updateReadout(){
-  const el=$('boxReadout');if(!el)return;
-  if(!S.rects.length){el.textContent=`拖拽画矩形框，或选「轮廓去除」沿目标画一圈；区域内去除后按衣服/背景色还原`;return}
-  const parts=S.rects.map((r,i)=>{
-    const ox=Math.round(r.x/S.scale),oy=Math.round(r.y/S.scale);
-    const ow=Math.round(r.w/S.scale),oh=Math.round(r.h/S.scale);
-    return r.points?`轮廓${i+1}(${r.points.length}点)`: `框${i+1}(${ox},${oy} ${ow}×${oh})`;
-  });
-  el.textContent=`${parts.join('　')}　|　共 ${S.rects.length}/${MAX_BOXES} 框 · 拖内部移动 · 手柄缩放 · 方向键微调`;
-}
-// 新增框：未满 3 个则追加，已满则替换当前框
-function commitBox(r){
-  if(S.rects.length<MAX_BOXES){S.rects.push(r);S.activeBox=S.rects.length-1}
-  else{S.rects[S.activeBox]=r}
-}
-function down(e){
-  if(!baseImage)return;e.preventDefault();
-  const p=pos(e);
-  // 手柄优先（从后往前，上层框先命中），再判断框内移动
-  for(let i=S.rects.length-1;i>=0;i--){
-    const r=S.rects[i];
-    if(r.points)continue; // 闭合轮廓不提供手柄缩放，只能整体移动/删除重画
-    const h=hitHandle(p,r);
-    if(h){S.action='resize';S.activeBox=i;S.handle=h;S.orig={...r};S.start=p;draw();return}
-  }
-  for(let i=S.rects.length-1;i>=0;i--){
-    if(inBox(p,S.rects[i])){S.action='move';S.activeBox=i;S.orig={...S.rects[i]};S.start=p;setCursor('move');draw();return}
-  }
-  if(S.tool==='line'){S.action='line';S.linePts=[p];S.cur=p;return}
-  S.action='draw';S.start=p;S.cur=p;
-}
-function move(e){
-  if(!baseImage)return;
-  const p=pos(e),r=S.rects[S.activeBox];
-  if(!S.action){
-    let c='crosshair';
-    if(r){if(hitHandle(p,r))c='pointer';else if(inBox(p,r))c='move'}
-    setCursor(c);return;
-  }
-  e.preventDefault();
-  if(S.action==='draw'){S.cur=p;draw();return}
-  if(S.action==='line'){S.linePts.push(p);S.cur=p;draw();return}
-  if(!S.orig)return;
-  if(S.action==='move'){
-    const o=S.orig;
-    const nx=clamp(o.x+p.x-S.start.x,0,stage.width-o.w);
-    const ny=clamp(o.y+p.y-S.start.y,0,stage.height-o.h);
-    const box={...o,x:nx,y:ny};
-    // 轮廓点必须随框整体平移，否则线条与命中区域会脱节
-    if(o.points)box.points=o.points.map(q=>({x:q.x+nx-o.x,y:q.y+ny-o.y}));
-    S.rects[S.activeBox]=box;
-  }else if(S.action==='resize'){
-    S.rects[S.activeBox]={...resizeBox(S.orig,S.handle,p),kind:S.orig.kind};
-  }
-  draw();updateReadout();
-}
 function resizeBox(o,h,p){
   let x=o.x,y=o.y,w=o.w,ht=o.h,right=x+w,bottom=y+ht;
   if(h.includes('w'))x=clamp(p.x,0,right-MIN_BOX);
@@ -606,176 +585,148 @@ function resizeBox(o,h,p){
   if(h.includes('s'))bottom=clamp(p.y,y+MIN_BOX,stage.height);
   return{x,y,w:right-x,h:bottom-y};
 }
-function up(e){
-  if(!S.action)return;
-  if(S.action==='draw'&&S.cur){
-    const r=normRect(S.start,S.cur);
-    if(r.w>=MIN_BOX&&r.h>=MIN_BOX)commitBox(r);
-  }else if(S.action==='line'&&S.linePts.length>2){
-    // 闭合轮廓：保留轨迹点本身（不再取外接矩形当处理区）。
-    // 首尾距离大于阈值时自动闭合，保证"包围关系"成立。
-    const pts=S.linePts.map(q=>({x:q.x,y:q.y}));
-    const a=pts[0],b=pts[pts.length-1];
-    if(Math.hypot(b.x-a.x,b.y-a.y)>8)pts.push({x:a.x,y:a.y});
-    let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
-    pts.forEach(q=>{x1=Math.min(x1,q.x);y1=Math.min(y1,q.y);x2=Math.max(x2,q.x);y2=Math.max(y2,q.y)});
-    if(x2-x1>=MIN_BOX&&y2-y1>=MIN_BOX){
-      // x/y/w/h 仅用于命中检测与坐标换算，真正处理区域由 points 决定
-      commitBox({x:x1,y:y1,w:x2-x1,h:y2-y1,kind:'line',points:pts});
+function down(e){
+  if(!baseImage)return;e.preventDefault();
+  const p=pos(e);
+  // 1) 手柄优先（从后往前，上层先命中）——矩形与线条一致
+  for(let i=S.rects.length-1;i>=0;i--){
+    const h=hitHandle(p,S.rects[i]);
+    if(h){lineState.sel={kind:'rect',index:i};lineState.act={type:'resize',handle:h,orig:{...S.rects[i]}};draw();return}
+  }
+  for(let i=lineState.shapes.length-1;i>=0;i--){
+    const h=hitHandle(p,shapeBox(lineState.shapes[i]));
+    if(h){lineState.sel={kind:'line',index:i};lineState.act={type:'resize',handle:h,orig:shapeBox(lineState.shapes[i]),pts:lineState.shapes[i].slice()};draw();return}
+  }
+  // 2) 内部按下 = 选中并整体移动；命中区矩形/线条一致（线条用外接矩形命中，不显示）
+  for(let i=S.rects.length-1;i>=0;i--){
+    if(inBox(p,S.rects[i])){
+      lineState.sel={kind:'rect',index:i};
+      lineState.act={type:'move',orig:{...S.rects[i]},start:p};setCursor('move');draw();return;
     }
   }
-  S.action=null;S.cur=null;S.orig=null;S.handle=null;S.linePts=[];
-  setCursor('crosshair');draw();checkReady();updateReadout();
-  if(S.rects.length)onBoxReady();
+  for(let i=lineState.shapes.length-1;i>=0;i--){
+    if(inBox(p,shapeBox(lineState.shapes[i]))){
+      lineState.sel={kind:'line',index:i};
+      lineState.act={type:'move',orig:shapeBox(lineState.shapes[i]),start:p,pts:lineState.shapes[i].slice()};
+      setCursor('move');draw();return;
+    }
+  }
+  // 3) 空白按下 = 按当前工具新建
+  lineState.sel=null;
+  if(lineState.tool==='line'){lineState.active=true;lineState.pts=[p];draw();return}
+  S.drawing=true;S.start=p;S.cur=p;
+}
+function move(e){
+  if(!baseImage)return;
+  const p=pos(e);
+  // 悬停光标反馈：手柄 pointer、框内 move、其余 crosshair（矩形/线条一致）
+  if(!S.drawing&&!lineState.active&&!lineState.act){
+    let c='crosshair';const b=selBox();
+    if(b){if(hitHandle(p,b))c='pointer';else if(inBox(p,b))c='move'}
+    setCursor(c);return;
+  }
+  e.preventDefault();
+  if(lineState.act){
+    const a=lineState.act,s=lineState.sel;
+    if(a.type==='move'){
+      const nx=clamp(a.orig.x+p.x-a.start.x,0,stage.width-a.orig.w);
+      const ny=clamp(a.orig.y+p.y-a.start.y,0,stage.height-a.orig.h);
+      if(s.kind==='rect')S.rects[s.index]={...a.orig,x:nx,y:ny};
+      else lineState.shapes[s.index]=a.pts.map(q=>({x:q.x+nx-a.orig.x,y:q.y+ny-a.orig.y}));
+    }else{
+      const nb=resizeBox(a.orig,a.handle,p);
+      if(s.kind==='rect')S.rects[s.index]=nb;
+      else{
+        // 线随框同步缩放：把轮廓点按外接矩形的变化等比映射，修复区域随之改变
+        const o=a.orig;
+        const sx=o.w?nb.w/o.w:1,sy=o.h?nb.h/o.h:1;
+        lineState.shapes[s.index]=a.pts.map(q=>({x:nb.x+(q.x-o.x)*sx,y:nb.y+(q.y-o.y)*sy}));
+      }
+    }
+    draw();return;
+  }
+  if(lineState.active){
+    const last=lineState.pts[lineState.pts.length-1];
+    if(!last||Math.hypot(p.x-last.x,p.y-last.y)>2){lineState.pts.push(p);draw()}
+    return;
+  }
+  S.cur=p;draw();
+}
+function up(e){
+  if(lineState.act){
+    lineState.act=null;setCursor('crosshair');draw();checkReady();return;
+  }
+  if(lineState.active){
+    lineState.active=false;
+    if(lineState.pts.length>=3){lineState.shapes.push(lineState.pts.slice());lineState.sel={kind:'line',index:lineState.shapes.length-1}}
+    lineState.pts=[];draw();checkReady();return;
+  }
+  if(!S.drawing)return;S.drawing=false;
+  if(S.cur){const r=normRect(S.start,S.cur);if(r.w>6&&r.h>6){S.rects.push(r);lineState.sel={kind:'rect',index:S.rects.length-1}}}
+  S.cur=null;draw();checkReady();
 }
 stage.addEventListener('mousedown',down);stage.addEventListener('mousemove',move);window.addEventListener('mouseup',up);
 stage.addEventListener('touchstart',down,{passive:false});stage.addEventListener('touchmove',move,{passive:false});window.addEventListener('touchend',up);
 
-// 方向键微调当前框（1px，按住 Shift 为 10px）
-window.addEventListener('keydown',e=>{
-  if(!baseImage||!S.rects.length||S.action)return;
-  const tag=(document.activeElement&&document.activeElement.tagName)||'';
-  if(/INPUT|SELECT|TEXTAREA|BUTTON/.test(tag))return;
-  const step=e.shiftKey?10:1;
-  let dx=0,dy=0;
-  if(e.key==='ArrowLeft')dx=-step;else if(e.key==='ArrowRight')dx=step;
-  else if(e.key==='ArrowUp')dy=-step;else if(e.key==='ArrowDown')dy=step;
-  else return;
-  e.preventDefault();
-  const r=S.rects[S.activeBox];
-  S.rects[S.activeBox]={...r,
-    x:clamp(r.x+dx,0,stage.width-r.w),y:clamp(r.y+dy,0,stage.height-r.h)};
-  draw();updateReadout();
-});
-
-// 工具切换：矩形框 / 线条框（线条松开后取外接矩形作为自定义框）
-function setTool(t){
-  S.tool=t;
-  $('toolRect').classList.toggle('active',t==='rect');
-  $('toolLine').classList.toggle('active',t==='line');
-  toast(t==='line'?'轮廓去除：沿目标画一圈，区域内去除后按衣服/背景色还原':'矩形框选：拖拽画框做去除，最多 3 个');
-}
-$('toolRect').onclick=()=>setTool('rect');
-$('toolLine').onclick=()=>setTool('line');
-// 自动框右下角：多数平台水印落在右下角，一键框好再微调
-$('toolAuto').onclick=()=>{
-  if(!baseImage){toast('请先选择图片');return}
-  const bw=Math.round(stage.width*0.32), bh=Math.round(stage.height*0.14);
-  const mx=Math.round(stage.width*0.02), my=Math.round(stage.height*0.02);
-  commitBox({x:Math.max(0,stage.width-bw-mx),y:Math.max(0,stage.height-bh-my),w:bw,h:bh});
-  draw();checkReady();updateReadout();onBoxReady();
-  toast(`已自动框选右下角（共 ${S.rects.length}/${MAX_BOXES} 框）`);
+$('toolRect').onclick=()=>{
+  lineState.tool='rect';lineState.active=false;lineState.pts=[];lineState.sel=null;lineState.act=null;
+  $('toolRect').classList.add('active');$('toolLine').classList.remove('active');
+  document.querySelector('.tool-hint').textContent='在图片上按住鼠标拖拽，框住水印；点框选中，拖手柄缩放';
+  draw();
 };
-// 删除当前框：多框时逐个修正，不必全部重画
-$('toolDel').onclick=()=>{
-  if(!S.rects.length){toast('没有可删除的框');return}
-  S.rects.splice(S.activeBox,1);
-  S.activeBox=Math.max(0,Math.min(S.activeBox,S.rects.length-1));
-  draw();checkReady();updateReadout();clearDetect();
-  toast('已删除当前框');
+$('toolLine').onclick=()=>{
+  lineState.tool='line';lineState.active=false;lineState.pts=[];lineState.sel=null;lineState.act=null;
+  $('toolLine').classList.add('active');$('toolRect').classList.remove('active');
+  document.querySelector('.tool-hint').textContent='沿目标画一圈闭合线条，区域内目标会被去除并还原背景';
+  draw();toast('线条轮廓：沿目标画一圈，松开后点线条选中；拖小手柄缩放，线随框同步变化');
 };
-$('toolClear').onclick=()=>{S.rects=[];S.activeBox=0;draw();checkReady();updateReadout();clearDetect();toast('已清除全部选框')};
-$('toolReselect').onclick=()=>{resetAll(true)};
-
-/* 智能识别（纯前端，无需后端）：判断框周围背景是"平滑"还是"有纹理"。
-   做法与阈值都经过实测校准：
-   - 只在"框外一圈环带"统计，避免框内的水印笔画本身被当成纹理；
-   - 用拉普拉斯（二阶差分）的**中位数**衡量纹理密度：平滑渐变/纯色的
-     二阶差分≈0，草地/砖墙等纹理明显>0；用中位数而非均值，避免框边
-     恰好压到一根强边缘（电线/桌沿）就被误判成纹理；
-   - getImageData 采样矩形必须严格落在画布内，否则浏览器抛
-     IndexSizeError（框贴边 + 四舍五入越界 1px 就会发生），因此统一下
-     夹紧并 try/catch 兜底，失败时回退 smart，绝不打断框选流程。
-   实测参考值（0~255 亮度，环带中位数）：纯色/渐变 0，平滑木桌 1~2，
-   手指皮肤 ≈1，木纹背景 2~5，草地/砖墙通常 >6。阈值取 1.8 / 6。 */
-function localDetect(r){
-  try{
-    const cw=stage.width, ch=stage.height;
-    const pad=Math.max(6,Math.round(Math.min(r.w,r.h)*0.35));
-    const cx0=clamp(Math.round(r.x-pad),0,cw-1), cy0=clamp(Math.round(r.y-pad),0,ch-1);
-    const cx1=clamp(Math.round(r.x+r.w+pad),cx0+1,cw), cy1=clamp(Math.round(r.y+r.h+pad),cy0+1,ch);
-    const sw=cx1-cx0, sh=cy1-cy0;
-    if(sw<8||sh<8)return{label:'小区域',mode:'smart'};
-    const sample=ctx.getImageData(cx0,cy0,sw,sh);
-    const d=sample.data,W=sample.width,H=sample.height;
-    // 内框在 sample 内的坐标（统计时排除）
-    const ix0=r.x-cx0, iy0=r.y-cy0, ix1=ix0+r.w, iy1=iy0+r.h;
-    const hist=new Uint32Array(256);   // 拉普拉斯幅度直方图（取中位数用）
-    let cnt=0,gradSum=0,gn=0;
-    const lumAt=(i,j)=>{const k=(j*W+i)*4;return (d[k]+d[k+1]+d[k+2])/3};
-    for(let j=1;j<H-1;j++)for(let i=1;i<W-1;i++){
-      const inBox=(i>=ix0&&i<=ix1&&j>=iy0&&j<=iy1);
-      if(inBox)continue;               // 只统计环带
-      const c=lumAt(i,j);
-      const lap=Math.abs(4*c-lumAt(i-1,j)-lumAt(i+1,j)-lumAt(i,j-1)-lumAt(i,j+1));
-      hist[Math.min(255,Math.round(lap))]++;
-      cnt++;
-      gradSum+=Math.abs(c-lumAt(i-1,j))+Math.abs(c-lumAt(i,j-1));
-      gn++;
-    }
-    if(cnt<40){                        // 环带太窄（框几乎占满画布）：改用框内统计
-      for(let j=1;j<H-1;j++)for(let i=1;i<W-1;i++){
-        const c=lumAt(i,j);
-        const lap=Math.abs(4*c-lumAt(i-1,j)-lumAt(i+1,j)-lumAt(i,j-1)-lumAt(i,j+1));
-        hist[Math.min(255,Math.round(lap))]++;cnt++;
-      }
-    }
-    if(!cnt)return{label:'小区域',mode:'smart'};
-    // 中位数
-    let acc=0,med=0;
-    for(let v=0;v<256;v++){acc+=hist[v];if(acc>=cnt/2){med=v;break}}
-    const edge=gn?gradSum/gn:0;
-    let mode,label;
-    if(med>6){mode='texture';label='明显纹理'}
-    else if(med>1.8){mode='texture';label='轻纹理'}
-    else{mode='smart';label='纯色/渐变'}
-    return{label,mode,detail:{lapMed:med,edge:Math.round(edge)}};
-  }catch(err){
-    console.warn('智能识别失败，回退智能修复：',err);
-    return{label:'区域过小或贴边',mode:'smart'};
-  }
-}
-function clearDetect(){S.detection=null;const b=$('detectBadge');if(b)b.style.display='none'}
-function onBoxReady(){
-  const badge=$('detectBadge');if(!badge)return;
-  if($('mode').value!=='auto'){badge.style.display='none';S.effectiveMode=$('mode').value;return}
-  const d=localDetect(S.rects[S.activeBox]||S.rects[0]);S.detection=d;S.effectiveMode=d.mode;
-  badge.style.display='inline-flex';badge.className='detect-badge ok';
-  badge.textContent=`智能识别：${d.label} · 已自动选用「${d.mode==='texture'?'纹理重建':'智能修复'}」`;
-}
+$('toolUndo').onclick=()=>{
+  // 撤销选中的对象（矩形/线条一致），无选中时撤销最后添加的线条，再退而撤销矩形
+  const s=lineState.sel;
+  if(s&&s.kind==='line'&&lineState.shapes[s.index]){lineState.shapes.splice(s.index,1);toast('已撤销选中的线条轮廓')}
+  else if(s&&s.kind==='rect'&&S.rects[s.index]){S.rects.splice(s.index,1);toast('已撤销选中的框')}
+  else if(lineState.shapes.length){lineState.shapes.pop();toast('已撤销上一个线条轮廓')}
+  else if(S.rects.length){S.rects.pop();toast('已撤销上一个框')}
+  lineState.sel=null;lineState.act=null;draw();checkReady();
+};
+$('toolClear').onclick=()=>{S.rects=[];lineState.shapes=[];lineState.pts=[];lineState.active=false;lineState.sel=null;lineState.act=null;draw();checkReady();toast('已清除全部框选与线条')};
+// 顶部“下一页”入口：与“处理下一张”一致，重置为可上传下一张的状态
+$('btnNextTop').onclick=()=>{
+  if(!baseImage){toast('当前还没有图片，先上传一张吧');return}
+  resetAll();toast('已进入下一页，请上传或选择下一张图片');
+};
 
 /* ============================================================
    面板交互
    ============================================================ */
-$('mode').onchange=e=>{S.mode=e.target.value;$('modeDesc').textContent=CONFIG.modeDesc[S.mode];onBoxReady()};
-$('modeDesc').textContent=CONFIG.modeDesc.auto;
+$('mode').onchange=e=>{S.mode=e.target.value;$('modeDesc').textContent=CONFIG.modeDesc[S.mode]};
+$('modeDesc').textContent=CONFIG.modeDesc.smart;
 function bindSwitch(id,key){$(id).onclick=()=>{$(id).classList.toggle('on');S[key]=$(id).classList.contains('on')}}
 bindSwitch('swSharpen','sharpen');
 $('iterRange').oninput=e=>{S.iter=+e.target.value;$('iterVal').textContent=CONFIG.strengthLabel[S.iter]};
 $('authCheck').onchange=checkReady;
-function checkReady(){$('btnProcess').disabled=!(baseImage&&S.rects.length&&$('authCheck').checked)}
+function checkReady(){$('btnProcess').disabled=!(baseImage&&(S.rects.length||lineState.shapes.length)&&$('authCheck').checked)}
 
 /* ============================================================
    核心修复算法（纯前端）
    ------------------------------------------------------------
    1) smart   拉普拉斯扩散：把框内像素当作“待解”，框外像素作边界条件，
               反复用上下左右邻居平均值迭代，等价于求解调和函数。对纯色/
-              渐变背景能近乎无痕重建；大框自动走多尺度加速。
+              渐变背景能近乎无痕重建。
    2) average 边缘颜色平均填充（快速）。
-   3) texture 与 smart 同源（整框扩散重建），修复前会按短边比例外扩
-              选框，覆盖水印的抗锯齿边缘与投影阴影，避免浅色残边。
+   3) texture 从水印框上方复制同尺寸纹理平移过来。
    ============================================================ */
 $('btnProcess').onclick=()=>{
-  if(!baseImage||!S.rects.length)return;
+  if(!baseImage||(!S.rects.length&&!lineState.shapes.length))return;
+  S._t0=performance.now();
   setFlow(3);$('btnProcess').disabled=true;$('btnText').textContent='修复中…';
-  const t0=performance.now();
   // 让浏览器先渲染“修复中”状态
   setTimeout(()=>{
     try{
       const result=repair();
       showResult(result);
-      const sec=((performance.now()-t0)/1000).toFixed(2);
-      toast(`修复完成 · 用时 ${sec}s · 拖动白线对比效果`);
+      const t=(performance.now()-S._t0).toFixed(0);
+      toast('修复完成 · 耗时 '+t+'ms · 拖动白线对比效果');
     }catch(err){console.error(err);toast('修复出错：'+err.message)}
     finally{
       $('btnText').textContent='重新修复';$('btnProcess').disabled=false;
@@ -793,35 +744,28 @@ function repair(){
   cx.drawImage(baseImage,0,0);
   const imgData=cx.getImageData(0,0,c.width,c.height);
   const data=imgData.data,W=c.width,H=c.height;
-  const repairedRects=[];   // 记录实际修复区域（含外扩），供局部锐化使用
 
+  const touched=[];   // 记录实际修复区（含外扩），锐化只作用于这些区域，保证框外像素不变
   S.rects.forEach(r=>{
-    // 闭合轮廓：按轮廓形状去除目标，用周边衣服/背景色还原，轮廓外不变
-    if(r.points&&r.points.length>2){
-      polygonRemove(data,W,H,r.points.map(q=>({x:q.x/S.scale,y:q.y/S.scale})),CONFIG.autoIterations[S.iter]);
-      return;
-    }
     // 画布坐标 -> 原图坐标
     let x=Math.round(r.x/S.scale),y=Math.round(r.y/S.scale);
     let w=Math.round(r.w/S.scale),h=Math.round(r.h/S.scale);
     x=Math.max(0,x);y=Math.max(0,y);
     w=Math.min(w,W-x);h=Math.min(h,H-y);
     if(w<=0||h<=0)return;
-    // 智能识别模式下用 effectiveMode（由 onBoxReady 判定），其余用手动选择
-    const m=(S.mode==='auto')?S.effectiveMode:S.mode;
-    if(m!=='average'){
-      // 自然重建：平滑背景用 Coons 插值，纹理背景用多方向源块；严格只写回框内
-      naturalFill(data,W,H,x,y,w,h);
-      repairedRects.push({x,y,w,h});
-      return;
-    }
-    // 快速填充模式：取边缘平均色（用户手动选择）
-    fillAverage(data,W,H,x,y,w,h);
-    repairedRects.push({x,y,w,h});
+    if(S.mode==='average'){fillAverage(data,W,H,x,y,w,h);touched.push({x,y,w,h})}
+    else if(S.mode==='texture'){fillTexture(cx,data,W,H,x,y,w,h);touched.push({x,y,w,h})}
+    else{const info=smartFill(data,W,H,x,y,w,h,CONFIG.autoIterations[S.iter]);touched.push(info.region||{x,y,w,h})}
+  });
+
+  // 线条轮廓：以矩形框为权威基准，三模式与参数全部对齐；回写只落在多边形内
+  lineState.shapes.forEach(shape=>{
+    const reg=lineRemove(data,W,H,shape,CONFIG.autoIterations[S.iter],S.mode,cx);
+    if(reg)touched.push(reg);
   });
 
   if(S.sharpen){
-    const out=sharpen(imgData,W,H,CONFIG.sharpenAmount,repairedRects);
+    const out=sharpen(imgData,W,H,CONFIG.sharpenAmount,touched);
     cx.putImageData(out,0,0);
   }else{
     cx.putImageData(imgData,0,0);
@@ -829,400 +773,378 @@ function repair(){
   return c.toDataURL('image/png');
 }
 
-// 闭合轮廓内去除目标：以轮廓外一圈像素为边界条件，对轮廓内做拉普拉斯扩散，
-// 用周边衣服/背景色还原被框住的区域；轮廓外像素一个字节都不动。
-function polygonRemove(data,W,H,points,iters){
-  if(!points||points.length<3)return;
-  let x1=Infinity,y1=Infinity,x2=-Infinity,y2=-Infinity;
-  points.forEach(q=>{x1=Math.min(x1,q.x);y1=Math.min(y1,q.y);x2=Math.max(x2,q.x);y2=Math.max(y2,q.y)});
-  x1=Math.max(0,Math.floor(x1));y1=Math.max(0,Math.floor(y1));
-  x2=Math.min(W,Math.ceil(x2));y2=Math.min(H,Math.ceil(y2));
-  const w=x2-x1,h=y2-y1;
-  if(w<2||h<2)return;
-  // 射线法：判断像素中心是否落在闭合轮廓内
-  function inPoly(px,py){
-    let c=false;
-    for(let i=0,j=points.length-1;i<points.length;j=i++){
-      const xi=points[i].x,yi=points[i].y,xj=points[j].x,yj=points[j].y;
-      if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))c=!c;
-    }
-    return c;
-  }
-  const pad=2,lw=w+pad*2,lh=h+pad*2,N=lw*lh;
-  const R=new Float32Array(N),G=new Float32Array(N),B=new Float32Array(N);
-  const inside=new Uint8Array(N),valid=new Uint8Array(N);
-  let br=0,bg=0,bb=0,bn=0;
-  for(let j=0;j<lh;j++)for(let i=0;i<lw;i++){
-    const k=j*lw+i,gx=x1-pad+i,gy=y1-pad+j;
-    const isIn=inPoly(gx+0.5,gy+0.5);
-    inside[k]=isIn?1:0;
-    if(!isIn&&gx>=0&&gx<W&&gy>=0&&gy<H){
-      const s=(gy*W+gx)*4;
-      R[k]=data[s];G[k]=data[s+1];B[k]=data[s+2];
-      br+=data[s];bg+=data[s+1];bb+=data[s+2];bn++;
-      valid[k]=1;
-    }
-  }
-  if(bn===0){br=data[0];bg=data[1];bb=data[2]}
-  else{br/=bn;bg/=bn;bb/=bn}
-  for(let k=0;k<N;k++)if(!valid[k]){R[k]=br;G[k]=bg;B[k]=bb}
-  // 迭代次数要足够让颜色从边界传到轮廓最深处
-  const nIter=Math.max(iters||200,Math.ceil(Math.max(lw,lh)/2));
-  for(let it=0;it<nIter;it++){
-    for(let j=1;j<lh-1;j++)for(let i=1;i<lw-1;i++){
-      const k=j*lw+i;
-      if(!inside[k])continue;
-      R[k]=(R[k-1]+R[k+1]+R[k-lw]+R[k+lw])*0.25;
-      G[k]=(G[k-1]+G[k+1]+G[k-lw]+G[k+lw])*0.25;
-      B[k]=(B[k-1]+B[k+1]+B[k-lw]+B[k+lw])*0.25;
-    }
-  }
-  for(let j=0;j<lh;j++)for(let i=0;i<lw;i++){
-    const k=j*lw+i;
-    if(!inside[k])continue;
-    const gx=x1-pad+i,gy=y1-pad+j;
-    if(gx<0||gx>=W||gy<0||gy>=H)continue;
-    const d=(gy*W+gx)*4;
-    data[d]=R[k];data[d+1]=G[k];data[d+2]=B[k];
-  }
-}
-
 // 方式1：快速平均填充
 function fillAverage(data,W,H,x,y,w,h){
   const pad=3;
   let r=0,g=0,b=0,n=0;
-  // 采样框外 pad 圈；若采样点因贴边 clamp 后落回框内（水印区），则放弃该点，
-  // 防止水印颜色混入平均色导致修复区发灰/发白
-  const sample=(sx,sy)=>{
-    sx=Math.max(0,Math.min(W-1,sx));sy=Math.max(0,Math.min(H-1,sy));
-    if(sx>=x&&sx<x+w&&sy>=y&&sy<y+h)return; // 落回框内 = 水印像素，弃用
-    const i=(sy*W+sx)*4;r+=data[i];g+=data[i+1];b+=data[i+2];n++;
-  };
+  const sample=(sx,sy)=>{if(sx<0||sy<0||sx>=W||sy>=H)return;sx=Math.max(0,Math.min(W-1,sx));sy=Math.max(0,Math.min(H-1,sy));const i=(sy*W+sx)*4;r+=data[i];g+=data[i+1];b+=data[i+2];n++};
   for(let i=-pad;i<w+pad;i++){sample(x+i,y-pad);sample(x+i,y+h+pad-1)}
   for(let j=-pad;j<h+pad;j++){sample(x-pad,y+j);sample(x+w+pad-1,y+j)}
-  if(n===0){const i=((H-1)*W+(W-1))*4;r=data[i];g=data[i+1];b=data[i+2]} // 极端：整图皆框，用右下角颜色兜底
-  else{r/=n;g/=n;b/=n}
+  r/=n||1;g/=n||1;b/=n||1;
   for(let yy=y;yy<y+h;yy++)for(let xx=x;xx<x+w;xx++){const i=(yy*W+xx)*4;data[i]=r;data[i+1]=g;data[i+2]=b}
 }
 
-/* ============ 自然重建（对齐后端引擎）============
-   平滑背景（纯色/渐变/柔和光影）：Coons patch 双线性插值，边界严格吻合，
-     不产生暗斑或矩形边界；
-}
-
-/* ============ 自然重建：笔画级去除（对齐后端）============
-   对印刷在物体表面的文字/logo，只检测并修复"笔画"像素，
-   物体表面的颜色/纹理/光影完整保留；检测不到笔画（纯色块水印）时
-   退回 Coons 双线性插值整框重建。只写框内，框外逐字节不变。
+/* ============================================================
+   智能修复核心（自身优化）
+   ------------------------------------------------------------
+   在原有"拉普拉斯扩散"基础上改进两点：
+   1) 自动把采样框向外扩一圈，让边界落在干净背景上，避免残留字形；
+   2) 用"局部中值背景估计 + 残差"识别文字笔画，再按背景情形选择：
+      · 平滑/渐变背景（如半透明署名）→ 整框双线性插值，颜色光影无缝延续；
+      · 有纹理/物体表面（如印花标记）→ 只修复笔画像素，保留原有纹理。
+   这样既能去掉水印，又不会把画面抹成色块。
    ============================================================ */
-function naturalFill(data,W,H,x,y,w,h){
-  if(w<3||h<3)return;
-  // 1) 局部对比找笔画：比局部背景明显更暗（或更亮）的细线
-  const gray=new Float32Array(w*h);
-  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
-    const k=((y+j)*W+(x+i))*4;
-    gray[j*w+i]=(data[k]+data[k+1]+data[k+2])/3;
-  }
-  const blurred=boxBlur1(gray,w,h,9);
-  const mask=new Uint8Array(w*h);
-  let darkN=0,lightN=0;
-  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
-    const k=j*w+i,d=blurred[k]-gray[k];
-    if(d>30){mask[k]=1;darkN++}
-    if(-d>30)lightN++;
-  }
-  if(lightN>darkN&&lightN/(w*h)>0.02){
-    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
-      const k=j*w+i;mask[k]=(gray[k]-blurred[k]>30)?1:0;
-    }
-  }
-  // 形态学闭运算+膨胀：连成完整笔画并覆盖抗锯齿边缘（对齐后端）
-  const dil=new Uint8Array(mask);
-  for(let it=0;it<2;it++){
-    const prev=Uint8Array.from(dil);
-    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
-      if(!prev[j*w+i])continue;
-      for(let dj=-1;dj<=1;dj++)for(let di=-1;di<=1;di++){
-        const nj=j+dj,ni=i+di;
-        if(nj>=0&&nj<h&&ni>=0&&ni<w)dil[nj*w+ni]=1;
-      }
-    }
-  }
-  let dn2=0;for(let i=0;i<w*h;i++){if(dil[i])dn2++;mask[i]=dil[i]}
-  const cov=dn2/(w*h);
-  if(cov>=0.02&&cov<=0.85){
-    // 笔画级：多次扩散让边界颜色传播到笔画中心（宽笔画也能覆盖），
-    // 非笔画像素始终钉回原值，物体表面纹理完整保留。
-    const R=Float32Array.from(data);
-    for(let it=0;it<24;it++){
-      const prev=Float32Array.from(R);
-      for(let j=1;j<h-1;j++)for(let i=1;i<w;i++){
-        const k=j*w+i;if(!mask[k])continue;
-        const d=((y+j)*W+(x+i))*4;
-        for(let c=0;c<3;c++){
-          R[d+c]=(prev[d-4+c]+prev[d+4+c]+prev[d-W*4+c]+prev[d+W*4+c])*0.25;
-        }
-      }
-    }
-    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
-      if(!mask[j*w+i])continue;
-      const k=((y+j)*W+(x+i))*4;
-      data[k]=R[k];data[k+1]=R[k+1];data[k+2]=R[k+2];
-    }
-    return;
-  }
 
-  // 2) 兜底：Coons patch 双线性插值整框重建
-  const pad=Math.max(8,Math.floor(Math.min(w,h)/2));
-  const ey1=Math.max(0,y-pad),ey2=Math.min(H,y+h+pad);
-  const ex1=Math.max(0,x-pad),ex2=Math.min(W,x+w+pad);
-  const eh=ey2-ey1,ew=ex2-ex1;
-  if(ew<3||eh<3)return;
-  const py0=y-ey1,px0=x-ex1;
-  const cy0=Math.max(0,py0-1),cy1=Math.min(eh-1,py0+h);
-  const cx0=Math.max(0,px0-1),cx1=Math.min(ew-1,px0+w);
-  for(let c=0;c<3;c++){
-    const top=new Float32Array(w),bot=new Float32Array(w);
-    const left=new Float32Array(h),right=new Float32Array(h);
+function _histMedian(hist,target){let acc=0;for(let i=0;i<256;i++){acc+=hist[i];if(acc>=target)return i}return 255}
+
+// 灰度中值滤波：估计局部背景，对叠加的文字不敏感
+function _medianBlur(src,w,h,r){
+  const out=new Uint8Array(w*h),col=new Array(w);
+  for(let x=0;x<w;x++)col[x]=new Uint32Array(256);
+  const win=new Uint32Array(256),target=((2*r+1)*(2*r+1))>>1;
+  for(let y=0;y<h;y++){
+    for(let x=0;x<w;x++)col[x].fill(0);
+    for(let dy=-r;dy<=r;dy++){
+      const row=Math.min(h-1,Math.max(0,y+dy))*w;
+      for(let x=0;x<w;x++)col[x][src[row+x]]++;
+    }
+    win.fill(0);
+    for(let d=-r;d<=r;d++){const c=col[Math.min(w-1,Math.max(0,d))];for(let i=0;i<256;i++)win[i]+=c[i]}
+    for(let x=0;x<w;x++){
+      out[y*w+x]=_histMedian(win,target);
+      const oc=Math.min(w-1,Math.max(0,x-r)),ic=Math.min(w-1,Math.max(0,x+r+1));
+      if(oc!==ic){const a=col[oc],b=col[ic];for(let i=0;i<256;i++)win[i]+=b[i]-a[i]}
+    }
+  }
+  return out;
+}
+function _pct(arr,p){
+  if(!arr.length)return 0;
+  const a=Float32Array.from(arr);a.sort();
+  return a[Math.min(a.length-1,Math.round((a.length-1)*p))];
+}
+function _morph(src,w,h,op){
+  const out=new Uint8Array(w*h);
+  const NB=[[-1,0],[1,0],[0,-1],[0,1],[-1,-1],[1,-1],[-1,1],[1,1]];
+  for(let y=0;y<h;y++)for(let x=0;x<w;x++){
+    const k=y*w+x;
+    if(x===0||y===0||x===w-1||y===h-1){out[k]=src[k];continue}
+    if(op==='dilate'){
+      let v=src[k];
+      if(!v)for(const[dx,dy]of NB){if(src[(y+dy)*w+x+dx]){v=1;break}}
+      out[k]=v;
+    }else{
+      let v=src[k];
+      if(v)for(const[dx,dy]of NB){if(!src[(y+dy)*w+x+dx]){v=0;break}}
+      out[k]=v;
+    }
+  }
+  return out;
+}
+function _closeMask(m,w,h){return _morph(_morph(m,w,h,'dilate'),w,h,'erode')}
+
+// 双线性协调插值：四边作边界，内部平滑过渡（适合平滑/渐变背景）
+function _coons(region,w,h){
+  const out=new Float32Array(region.length);
+  for(let c=0;c<3;c++)for(let j=0;j<h;j++){
+    const b=h>1?j/(h-1):0;
     for(let i=0;i<w;i++){
-      top[i]=data[((ey1+cy0)*W+(ex1+px0+i))*4+c];
-      bot[i]=data[((ey1+cy1)*W+(ex1+px0+i))*4+c];
+      const a=w>1?i/(w-1):0;
+      const top=region[i*3+c],bot=region[((h-1)*w+i)*3+c];
+      const lf=region[j*w*3+c],rt=region[(j*w+w-1)*3+c];
+      const c00=region[c],c01=region[(w-1)*3+c];
+      const c10=region[((h-1)*w)*3+c],c11=region[((h-1)*w+w-1)*3+c];
+      out[(j*w+i)*3+c]=(top*(1-b)+bot*b)+(lf*(1-a)+rt*a)
+        -((c00*(1-a)+c01*a)*(1-b)+(c10*(1-a)+c11*a)*b);
     }
-    for(let j=0;j<h;j++){
-      left[j]=data[((ey1+py0+j)*W+(ex1+cx0))*4+c];
-      right[j]=data[((ey1+py0+j)*W+(ex1+cx1))*4+c];
+  }
+  return out;
+}
+// 迭代扩散：只把 mask 内像素由周围背景填充（适合物体表面的小字）
+function _diffuse(region,w,h,mask,iters){
+  let cur=new Float32Array(region);
+  const tmp=new Float32Array(region.length);
+  for(let it=0;it<iters;it++){
+    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+      const k=j*w+i;if(!mask[k])continue;
+      const u=(j>0?j-1:j)*w+i,d=(j<h-1?j+1:j)*w+i;
+      const l=j*w+(i>0?i-1:i),r=j*w+(i<w-1?i+1:i);
+      for(let c=0;c<3;c++)tmp[k*3+c]=(cur[u*3+c]+cur[d*3+c]+cur[l*3+c]+cur[r*3+c])*0.25;
     }
-    const c00=data[((ey1+cy0)*W+(ex1+cx0))*4+c],c01=data[((ey1+cy0)*W+(ex1+cx1))*4+c];
-    const c10=data[((ey1+cy1)*W+(ex1+cx0))*4+c],c11=data[((ey1+cy1)*W+(ex1+cx1))*4+c];
-    for(let j=0;j<h;j++){
-      const ty=j/Math.max(1,h-1);
-      for(let i=0;i<w;i++){
-        const tx=i/Math.max(1,w-1);
-        const vTB=top[i]*(1-ty)+bot[i]*ty;
-        const vLR=left[j]*(1-tx)+right[j]*tx;
-        const corner=(c00*(1-tx)+c01*tx)*(1-ty)+(c10*(1-tx)+c11*tx)*ty;
-        data[((y+j)*W+(x+i))*4+c]=vTB+vLR-corner;
-      }
-    }
+    for(let k=0;k<w*h;k++)if(mask[k]){cur[k*3]=tmp[k*3];cur[k*3+1]=tmp[k*3+1];cur[k*3+2]=tmp[k*3+2]}
+  }
+  return cur;
+}
+
+// 智能修复入口：返回 {region,method}，region 用于把锐化限定在修复区
+function smartFill(data,W,H,x,y,w,h,iters){
+  const exp=Math.max(8,Math.round(Math.min(w,h)*0.28)); // 外扩，避开抗锯齿边缘
+  const x1=Math.max(0,x-exp),y1=Math.max(0,y-exp);
+  const x2=Math.min(W,x+w+exp),y2=Math.min(H,y+h+exp);
+  const region={x:x1,y:y1,w:x2-x1,h:y2-y1};
+  const rw=region.w,rh=region.h;
+  if(rw<4||rh<4)return {region,method:'skip'};
+
+  const gray=new Uint8Array(rw*rh);
+  for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+    const k=((y1+j)*W+(x1+i))*4;
+    gray[j*rw+i]=Math.round(0.299*data[k]+0.587*data[k+1]+0.114*data[k+2]);
+  }
+  let rad=Math.max(7,Math.min(15,(Math.min(rw,rh)/6)|1));if(rad%2===0)rad++;
+  const bg=_medianBlur(gray,rw,rh,rad);
+  const pos=[],neg=[];
+  for(let i=0;i<rw*rh;i++){const d=gray[i]-bg[i];if(d>0)pos.push(d);else neg.push(-d)}
+  const p97=_pct(pos,0.97),n97=_pct(neg,0.97);
+  let src,th,polarity;
+  if(p97>=n97&&p97>12){src=new Float32Array(rw*rh);for(let i=0;i<rw*rh;i++)src[i]=gray[i]-bg[i];th=Math.max(26,p97*0.42);polarity='light'}
+  else{src=new Float32Array(rw*rh);for(let i=0;i<rw*rh;i++)src[i]=bg[i]-gray[i];th=Math.max(26,n97*0.42);polarity='dark'}
+  let m=new Uint8Array(rw*rh);
+  for(let i=0;i<rw*rh;i++)m[i]=src[i]>th?1:0;
+  m=_closeMask(m,rw,rh);
+  let cnt=0;for(let i=0;i<rw*rh;i++)cnt+=m[i];
+  const cov=cnt/(rw*rh);
+
+  const rgb=new Float32Array(rw*rh*3);
+  for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+    const k=((y1+j)*W+(x1+i))*4,t=(j*rw+i)*3;
+    rgb[t]=data[k];rgb[t+1]=data[k+1];rgb[t+2]=data[k+2];
+  }
+  // 宽扁的浅色水印（半透明署名）或几乎无笔画 → 整框插值；其余 → 笔画级
+  if((w/h>=2.0&&polarity==='light'&&cov>0.04)||cov<0.004){
+    _writeAll(_coons(rgb,rw,rh),data,W,x1,y1,rw,rh);
+    return {region,method:'smooth',cov};
+  }
+  const md=_morph(m,rw,rh,'dilate');
+  let mc=0;for(let i=0;i<rw*rh;i++)mc+=md[i];
+  if(mc<rw*rh*0.004){
+    _writeAll(_coons(rgb,rw,rh),data,W,x1,y1,rw,rh);
+    return {region,method:'smooth',cov};
+  }
+  const filled=_diffuse(rgb,rw,rh,md,Math.max(iters,150));
+  for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+    const k=j*rw+i;if(!md[k])continue;
+    const d=((y1+j)*W+(x1+i))*4,t=k*3;
+    data[d]=filled[t];data[d+1]=filled[t+1];data[d+2]=filled[t+2];
+  }
+  return {region,method:'stroke',cov};
+}
+function _writeAll(filled,data,W,x1,y1,rw,rh){
+  for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+    const d=((y1+j)*W+(x1+i))*4,t=(j*rw+i)*3;
+    data[d]=filled[t];data[d+1]=filled[t+1];data[d+2]=filled[t+2];
   }
 }
 
-// 方式2：拉普拉斯扩散（核心）。大框自动走多尺度加速。
-function fillLaplace(data,W,H,x,y,w,h,iters){
-  const MAX_DIM=96, SCALE_DIM=64, pad=2;
-  // ---- 大框：多尺度（降采样 → 扩散 → 双线性放大）----
-  if(Math.min(w,h)>MAX_DIM){
-    const f=SCALE_DIM/Math.min(w,h);
-    const sw=Math.max(8,Math.round(w*f)), sh=Math.max(8,Math.round(h*f));
-    const lw=sw+pad*2, lh=sh+pad*2;
-    const R=new Float32Array(lw*lh),G=new Float32Array(lw*lh),B=new Float32Array(lw*lh);
-    // 低分辨率格 (i,j) 与原图的映射：原图 x+(i-pad)/f
-    laplaceLoad(data,W,H,x,y,w,h,R,G,B,lw,lh,pad,(i,j)=>{
-      const gx=Math.round(x+(i-pad)/f), gy=Math.round(y+(j-pad)/f);
-      return mirrorSample(gx,gy,x,y,w,h,W,H);
-    });
-    // 小网格仍需足够迭代让边界色向内传播（雅可比每次传播 1 格）
-    laplaceCore(R,G,B,lw,lh,pad,Math.max(300,Math.round(iters*f)));
-    // 放大写回：原图偏移 u ↔ 低分辨率坐标 pad-0.5+(u+0.5)*f
-    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
-      const li=pad-0.5+(i+0.5)*f, lj=pad-0.5+(j+0.5)*f;
-      const d=((y+j)*W+(x+i))*4;
-      data[d]=bilinear(R,lw,lh,li,lj);
-      data[d+1]=bilinear(G,lw,lh,li,lj);
-      data[d+2]=bilinear(B,lw,lh,li,lj);
+/* 线条轮廓去除：以矩形框 smartFill 为权威基准逐项对齐，分三阶段：
+   1) 坐标换算与边界：÷scale 后 round 取整、顶点钳到画面内，外扩 28%/min8 与矩形一致；
+   2) 三模式与参数：average/texture/smart 全支持，复用 rad/th/cov/宽高比/迭代下限 150；
+   3) 折中回写：扩大的 ROI 只用于取干净边界，实际写回严格限制在多边形 mask 内，
+      轮廓外像素逐字节不变；返回的 mask 一并交给 sharpen 做同样限定。 */
+function lineRemove(data,W,H,shape,iters,mode,cx){
+  // 阶段一：画布坐标 -> 原图坐标，取整并钳到图像范围（与矩形换算一致）
+  const pts=shape.map(p=>({x:Math.round(p.x/S.scale),y:Math.round(p.y/S.scale)}));
+  if(pts.length<3)return null;
+  let minX=Infinity,minY=Infinity,maxX=-Infinity,maxY=-Infinity;
+  pts.forEach(p=>{minX=Math.min(minX,p.x);minY=Math.min(minY,p.y);maxX=Math.max(maxX,p.x);maxY=Math.max(maxY,p.y)});
+  const polyW=maxX-minX,polyH=maxY-minY;
+  // 最小尺寸：与矩形创建的 w>6 && h>6 判定对齐
+  if(polyW<=FILL.minBox||polyH<=FILL.minBox)return null;
+  // 阶段三：ROI 外扩与矩形 smartFill 完全一致，让边界落在干净背景上
+  const exp=Math.max(FILL.expMin,Math.round(Math.min(polyW,polyH)*FILL.expRatio));
+  const x1=Math.max(0,Math.floor(minX)-exp),y1=Math.max(0,Math.floor(minY)-exp);
+  const x2=Math.min(W,Math.ceil(maxX)+exp),y2=Math.min(H,Math.ceil(maxY)+exp);
+  const rw=x2-x1,rh=y2-y1;
+  if(rw<4||rh<4)return null;
+  const region={x:x1,y:y1,w:rw,h:rh};
+  // 射线法：判断像素中心是否落在闭合多边形内（相对整图坐标）
+  function inPoly(px,py){
+    let inside=false;
+    for(let i=0,j=pts.length-1;i<pts.length;j=i++){
+      const xi=pts[i].x,yi=pts[i].y,xj=pts[j].x,yj=pts[j].y;
+      if(((yi>py)!==(yj>py))&&(px<(xj-xi)*(py-yi)/(yj-yi)+xi))inside=!inside;
     }
-    return;
+    return inside;
   }
-  // ---- 小框：原尺寸扩散 ----
-  const lw=w+pad*2, lh=h+pad*2;
-  const R=new Float32Array(lw*lh),G=new Float32Array(lw*lh),B=new Float32Array(lw*lh);
-  laplaceLoad(data,W,H,x,y,w,h,R,G,B,lw,lh,pad,(i,j)=>mirrorSample(x-pad+i,y-pad+j,x,y,w,h,W,H));
-  laplaceCore(R,G,B,lw,lh,pad,iters);
+  // 多边形 mask（扩大的 ROI 内，仅多边形内部为 1）——写回与锐化都只认它
+  // 性能：多边形一定落在其外接框内，外接框外的像素无需做射线法，直接跳过（结果恒为 0，行为不变）
+  const mask=new Uint8Array(rw*rh);
+  for(let j=0;j<rh;j++){
+    const py=y1+j+0.5;if(py<minY||py>maxY)continue;
+    for(let i=0;i<rw;i++){
+      const px=x1+i+0.5;if(px<minX||px>maxX)continue;
+      if(inPoly(px,py))mask[j*rw+i]=1;
+    }
+  }
+  let cnt=0;for(let i=0;i<rw*rh;i++)cnt+=mask[i];
+  if(cnt<FILL.minMask)return null;
+  // 局部 RGB：来自扩大的 ROI，作为各模式的边界/采样来源
+  const rgb=new Float32Array(rw*rh*3);
+  for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+    const s=((y1+j)*W+(x1+i))*4,t=(j*rw+i)*3;
+    rgb[t]=data[s];rgb[t+1]=data[s+1];rgb[t+2]=data[s+2];
+  }
+  const writeMask=(src)=>{
+    for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+      const k=j*rw+i;if(!mask[k])continue;
+      const d=((y1+j)*W+(x1+i))*4,t=k*3;
+      data[d]=src[t];data[d+1]=src[t+1];data[d+2]=src[t+2];
+    }
+  };
+  let method='skip';
+  if(mode==='average'){
+    // 与 fillAverage 一致：口罩外一圈 pad=3 取均色，填入口罩内
+    const pad=FILL.pad;let r=0,g=0,b=0,n=0;
+    // 性能：只有外接框外 pad 范围内的像素可能贴着口罩；更远的像素邻域必不含口罩，直接跳过
+    for(let j=0;j<rh;j++){
+      const py=y1+j+0.5;if(py<minY-pad||py>maxY+pad)continue;
+      for(let i=0;i<rw;i++){
+        const px=x1+i+0.5;if(px<minX-pad||px>maxX+pad)continue;
+        const k=j*rw+i;if(mask[k])continue;
+        let touch=false;
+        for(let dy=-pad;dy<=pad&&!touch;dy++)for(let dx=-pad;dx<=pad;dx++){
+          const ni=i+dx,nj=j+dy;
+          if(ni<0||nj<0||ni>=rw||nj>=rh)continue;
+          if(mask[nj*rw+ni]){touch=true;break}
+        }
+        if(touch){r+=rgb[k*3];g+=rgb[k*3+1];b+=rgb[k*3+2];n++}
+      }
+    }
+    r/=n||1;g/=n||1;b/=n||1;
+    const flat=new Float32Array(rw*rh*3);
+    for(let k=0;k<rw*rh;k++){flat[k*3]=r;flat[k*3+1]=g;flat[k*3+2]=b}
+    writeMask(flat);method='average';
+  }else if(mode==='texture'){
+    // 与 fillTexture 一致：从 ROI 上方（或下方）偏移 4px 平移同尺寸纹理，只写口罩内
+    let sy=y1-rh-FILL.texOffset;if(sy<0)sy=y1+rh+FILL.texOffset;
+    sy=Math.max(0,Math.min(H-rh,sy));
+    const sx=Math.max(0,Math.min(W-rw,x1));
+    const src=cx.getImageData(sx,sy,rw,rh).data;
+    const tex=new Float32Array(rw*rh*3);
+    for(let k=0;k<rw*rh;k++){tex[k*3]=src[k*4];tex[k*3+1]=src[k*4+1];tex[k*3+2]=src[k*4+2]}
+    writeMask(tex);method='texture';
+  }else{
+    // 阶段二：smart 复用矩形 smartFill 的全部诊断参数
+    const gray=new Uint8Array(rw*rh);
+    for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+      const k=((y1+j)*W+(x1+i))*4;
+      gray[j*rw+i]=Math.round(0.299*data[k]+0.587*data[k+1]+0.114*data[k+2]);
+    }
+    let rad=Math.max(FILL.radMin,Math.min(FILL.radMax,(Math.min(rw,rh)/FILL.radDiv)|1));if(rad%2===0)rad++;
+    const bg=_medianBlur(gray,rw,rh,rad);
+    const pos=[],neg=[];
+    for(let i=0;i<rw*rh;i++){const d=gray[i]-bg[i];if(d>0)pos.push(d);else neg.push(-d)}
+    const p97=_pct(pos,FILL.pct),n97=_pct(neg,FILL.pct);
+    let src,th,polarity;
+    if(p97>=n97&&p97>FILL.residualMin){src=new Float32Array(rw*rh);for(let i=0;i<rw*rh;i++)src[i]=gray[i]-bg[i];th=Math.max(FILL.thMin,p97*FILL.thRatio);polarity='light'}
+    else{src=new Float32Array(rw*rh);for(let i=0;i<rw*rh;i++)src[i]=bg[i]-gray[i];th=Math.max(FILL.thMin,n97*FILL.thRatio);polarity='dark'}
+    let m=new Uint8Array(rw*rh);
+    for(let i=0;i<rw*rh;i++)m[i]=src[i]>th?1:0;
+    m=_closeMask(m,rw,rh);
+    let cov=0;for(let i=0;i<rw*rh;i++)cov+=m[i];cov/=rw*rh;
+    // 掩码外的笔画全部丢弃，保证诊断只作用于多边形内部
+    for(let i=0;i<rw*rh;i++)if(!mask[i])m[i]=0;
+    // 与矩形一致的分支条件：宽扁浅色水印或几乎无笔画 -> 整框插值；否则笔画级扩散
+    if((polyW/polyH>=FILL.wideRatio&&polarity==='light'&&cov>FILL.covLarge)||cov<FILL.covTiny){
+      writeMask(_coons(rgb,rw,rh));method='smooth';
+    }else{
+      const md=_morph(m,rw,rh,'dilate');
+      for(let i=0;i<rw*rh;i++)if(!mask[i])md[i]=0;
+      let mc=0;for(let i=0;i<rw*rh;i++)mc+=md[i];
+      if(mc<rw*rh*FILL.covTiny){writeMask(_coons(rgb,rw,rh));method='smooth'}
+      else{
+        const filled=_diffuse(rgb,rw,rh,md,Math.max(iters,FILL.iterFloor));
+        // 阶段三折中：扩散结果只写回多边形内部，轮廓外一个字节都不动
+        for(let j=0;j<rh;j++)for(let i=0;i<rw;i++){
+          const k=j*rw+i;if(!md[k])continue;
+          const d=((y1+j)*W+(x1+i))*4,t=k*3;
+          data[d]=filled[t];data[d+1]=filled[t+1];data[d+2]=filled[t+2];
+        }
+        method='stroke';
+      }
+    }
+  }
+  // 把多边形 mask 随区域返回，sharpen 据此只增强轮廓内像素
+  region.mask=mask;region.method=method;
+  return region;
+}
+
+// 方式2：拉普拉斯扩散（核心）
+function fillLaplace(data,W,H,x,y,w,h,iters){
+  const pad=2;                       // 取框外 2 像素作为固定边界
+  const lw=w+pad*2,lh=h+pad*2,N=lw*lh;
+  const R=new Float32Array(N),G=new Float32Array(N),B=new Float32Array(N);
+  // 1) 边界用真实像素，并统计边界平均色
+  let br=0,bg=0,bb=0,bn=0;
+  for(let j=0;j<lh;j++)for(let i=0;i<lw;i++){
+    const gx=Math.max(0,Math.min(W-1,x-pad+i));
+    const gy=Math.max(0,Math.min(H-1,y-pad+j));
+    const idx=j*lw+i, s=(gy*W+gx)*4;
+    const isInner=(i>=pad&&i<lw-pad&&j>=pad&&j<lh-pad);
+    if(!isInner){R[idx]=data[s];G[idx]=data[s+1];B[idx]=data[s+2];br+=data[s];bg+=data[s+1];bb+=data[s+2];bn++}
+  }
+  // 2) 内部用边界平均色作为干净初值（避免水印颜色参与迭代，收敛更快更干净）
+  br/=bn||1;bg/=bn||1;bb/=bn||1;
+  for(let j=pad;j<lh-pad;j++)for(let i=pad;i<lw-pad;i++){
+    const k=j*lw+i;R[k]=br;G[k]=bg;B[k]=bb;
+  }
+  // 3) 迭代：内部像素 = 四邻平均值；边界保持不变（狄利克雷条件）
+  for(let it=0;it<iters;it++){
+    for(let j=pad;j<lh-pad;j++){
+      const row=j*lw;
+      for(let i=pad;i<lw-pad;i++){
+        const k=row+i;
+        const sum=[R[k-1]+R[k+1]+R[k-lw]+R[k+lw],
+                   G[k-1]+G[k+1]+G[k-lw]+G[k+lw],
+                   B[k-1]+B[k+1]+B[k-lw]+B[k+lw]];
+        R[k]=sum[0]*.25;G[k]=sum[1]*.25;B[k]=sum[2]*.25;
+      }
+    }
+  }
+  // 写回
   for(let j=0;j<h;j++)for(let i=0;i<w;i++){
     const k=(j+pad)*lw+(i+pad), d=((y+j)*W+(x+i))*4;
     data[d]=R[k];data[d+1]=G[k];data[d+2]=B[k];
   }
 }
 
-// 边界采样镜像：点 (gx,gy) 越界先 clamp；若落在框内（水印区），
-// 沿最近方向镜像到框外；无法镜像（框贴该边）时返回 null，
-// 由调用方用"有效边界均色"兜底（不能取图像对角，否则会引入异色污染）
-function mirrorSample(gx,gy,x,y,w,h,W,H){
-  gx=Math.max(0,Math.min(W-1,gx));gy=Math.max(0,Math.min(H-1,gy));
-  if(gx>=x&&gx<x+w&&gy>=y&&gy<y+h){
-    const dl=gx-x+1, dr=(x+w)-gx, dt=gy-y+1, db=(y+h)-gy;
-    const m=Math.min(dl,dr,dt,db);
-    if(m===dl)gx=x-1; else if(m===dr)gx=x+w;
-    else if(m===dt)gy=y-1; else gy=y+h;
-  }
-  if(gx<0||gx>=W||gy<0||gy>=H||(gx>=x&&gx<x+w&&gy>=y&&gy<y+h))return null;
-  return [gx,gy];
-}
-
-// 载入边界样本（sample(i,j) 返回原图坐标或 null），并初始化内部：
-// 内部统一用"有效边界均色"作初值，避免水印原色参与迭代；
-// 无任何有效边界的极端情况（框占满全图）退到全图抽样均色。
-function laplaceLoad(data,W,H,x,y,w,h,R,G,B,lw,lh,pad,sample){
-  const invalid=[];
-  let br=0,bg=0,bb=0,bn=0;
-  for(let j=0;j<lh;j++)for(let i=0;i<lw;i++){
-    if(i>=pad&&i<lw-pad&&j>=pad&&j<lh-pad)continue;  // 内部稍后统一初始化
-    const g=sample(i,j), k=j*lw+i;
-    if(!g){invalid.push(k);continue}
-    const s=(g[1]*W+g[0])*4;
-    R[k]=data[s];G[k]=data[s+1];B[k]=data[s+2];
-    br+=data[s];bg+=data[s+1];bb+=data[s+2];bn++;
-  }
-  if(!bn){
-    let sr=0,sg=0,sb=0,n=0;
-    for(let i=0;i<W*H;i+=97){const s=i*4;sr+=data[s];sg+=data[s+1];sb+=data[s+2];n++}
-    br=sr/(n||1);bg=sg/(n||1);bb=sb/(n||1);
-  }else{br/=bn;bg/=bn;bb/=bn}
-  for(const k of invalid){R[k]=br;G[k]=bg;B[k]=bb}
-  for(let j=pad;j<lh-pad;j++)for(let i=pad;i<lw-pad;i++){
-    const k=j*lw+i;R[k]=br;G[k]=bg;B[k]=bb;
+// 方式3：纹理平移（从上方复制）
+function fillTexture(cx,data,W,H,x,y,w,h){
+  let sy=y-h-4;                       // 优先取框上方
+  if(sy<0) sy=y+h+4;                  // 否则取框下方
+  sy=Math.max(0,Math.min(H-h,sy));
+  const src=cx.getImageData(x,sy,w,h).data;
+  for(let j=0;j<h;j++)for(let i=0;i<w;i++){
+    const s=(j*w+i)*4,d=((y+j)*W+(x+i))*4;
+    data[d]=src[s];data[d+1]=src[s+1];data[d+2]=src[s+2];
   }
 }
 
-// 扩散迭代核心：内部像素=四邻平均，边界固定（狄利克雷条件）
-function laplaceCore(R,G,B,lw,lh,pad,iters){
-  for(let it=0;it<iters;it++){
-    for(let j=pad;j<lh-pad;j++){
-      const row=j*lw;
-      for(let i=pad;i<lw-pad;i++){
-        const k=row+i;
-        R[k]=(R[k-1]+R[k+1]+R[k-lw]+R[k+lw])*.25;
-        G[k]=(G[k-1]+G[k+1]+G[k-lw]+G[k+lw])*.25;
-        B[k]=(B[k-1]+B[k+1]+B[k-lw]+B[k+lw])*.25;
-      }
-    }
-  }
-}
-
-// 双线性插值采样（多尺度放大用）
-function bilinear(A,lw,lh,fx,fy){
-  fx=Math.max(0,Math.min(lw-1,fx));fy=Math.max(0,Math.min(lh-1,fy));
-  const x0=Math.floor(fx),y0=Math.floor(fy);
-  const x1=Math.min(lw-1,x0+1),y1=Math.min(lh-1,y0+1);
-  const tx=fx-x0,ty=fy-y0;
-  const a=A[y0*lw+x0],b=A[y0*lw+x1],c=A[y1*lw+x0],d=A[y1*lw+x1];
-  return a*(1-tx)*(1-ty)+b*tx*(1-ty)+c*(1-tx)*ty+d*tx*ty;
-}
-
-// 修复框按短边比例外扩（3~12px）：覆盖水印抗锯齿边缘与投影阴影，
-// 否则框外过渡像素会被当边界保留，形成一圈浅色残边。
-function growRect(x,y,w,h,W,H){
-  const g=Math.max(3,Math.min(12,Math.round(Math.min(w,h)*0.06)));
-  const nx=Math.max(0,x-g), ny=Math.max(0,y-g);
-  return {x:nx, y:ny,
-    w:Math.min(W-nx, w+(x-nx)+g),
-    h:Math.min(H-ny, h+(y-ny)+g)};
-}
-
-// 框外一圈边界平均色
-function boxMean(data,W,H,x,y,w,h){
-  let r=0,g=0,b=0,n=0;
-  for(let j=Math.max(0,y);j<Math.min(H,y+h);j+=2)for(let i=Math.max(0,x);i<Math.min(W,x+w);i+=2){
-    const k=(j*W+i)*4;r+=data[k];g+=data[k+1];b+=data[k+2];n++;
-  }
-  return [r/(n||1),g/(n||1),b/(n||1)];
-}
-// 区域内"高亮 + 低饱和"像素占比：用于识别源块里是否又有水印
-function residueRatio(data,W,H,x,y,w,h){
-  let hit=0,n=0;
-  for(let j=Math.max(0,y);j<Math.min(H,y+h);j++)for(let i=Math.max(0,x);i<Math.min(W,x+w);i++){
-    const k=(j*W+i)*4,r0=data[k],g0=data[k+1],b0=data[k+2];
-    const mx=Math.max(r0,g0,b0),mn=Math.min(r0,g0,b0);
-    const lum=(r0+g0+b0)/3,sat=(mx-mn)/(mx+1);
-    if(lum>175&&sat<0.25)hit++;
-    n++;
-  }
-  return hit/(n||1);
-}
-// 一维盒式模糊（横纵两遍），用于提取高频细节
-function boxBlur1(src,w,h,r){
-  const tmp=new Float32Array(w*h),out=new Float32Array(w*h),d=2*r+1;
-  for(let y=0;y<h;y++){
-    const row=y*w;let sum=0;
-    for(let k=-r;k<=r;k++)sum+=src[row+clamp(k,0,w-1)];
-    for(let x0=0;x0<w;x0++){
-      tmp[row+x0]=sum/d;
-      sum-=src[row+clamp(x0-r,0,w-1)];
-      sum+=src[row+clamp(x0+r+1,0,w-1)];
-    }
-  }
-  for(let x0=0;x0<w;x0++){
-    let sum=0;
-    for(let k=-r;k<=r;k++)sum+=tmp[clamp(k,0,h-1)*w+x0];
-    for(let y=0;y<h;y++){
-      out[y*w+x0]=sum/d;
-      sum-=tmp[clamp(y-r,0,h-1)*w+x0];
-      sum+=tmp[clamp(y+r+1,0,h-1)*w+x0];
-    }
-  }
-  return out;
-}
-/* 纹理细节回注：扩散修复后画面会偏"涂抹感"，这里从邻近干净块提取
-   高频细节按羽化权重轻度叠加回去，既保留纹理观感，又不会带回水印。
-   安全约束（任一不满足就放弃回注，宁可不加也不出错）：
-     1) 源块必须完全在图内，且与修复框不重叠（间隔 gap）
-     2) 源块自身不含"高亮低饱和"水印特征（占比 >5% 则弃用）
-     3) 只回注高频（减去模糊），不做整体色偏
-     4) 框边羽化到 0，保证与框外无缝衔接
-   为避免大框耗时代价过高，修复面积超过 400x400 时不回注。 */
-function injectTexture(data,W,H,rect){
-  const {x,y,w,h}=rect;
-  if(w<12||h<12||w*h>160000)return false;
-  const gap=4;
-  const cands=[[0,-h-gap],[0,h+gap],[-w-gap,0],[w+gap,0]];
-  let best=null,bestScore=Infinity;
-  const targetMean=boxMean(data,W,H,x,y,w,h);
-  for(const [ox,oy] of cands){
-    const sx=x+ox, sy=y+oy;
-    if(sx<0||sy<0||sx+w>W||sy+h>H)continue;
-    if(residueRatio(data,W,H,sx,sy,w,h)>0.05)continue;
-    const m=boxMean(data,W,H,sx,sy,w,h);
-    const d=Math.abs(m[0]-targetMean[0])+Math.abs(m[1]-targetMean[1])+Math.abs(m[2]-targetMean[2]);
-    if(d<bestScore){bestScore=d;best=[sx,sy]}
-  }
-  if(!best)return false;
-  const [sx,sy]=best;
-  const r=Math.max(2,Math.round(Math.min(w,h)*0.06));
-  const feather=Math.max(3,Math.min(12,Math.round(Math.min(w,h)*0.3)));
-  const AMOUNT=0.85;
-  for(let c=0;c<3;c++){
-    const ch=new Float32Array(w*h);
-    for(let j=0;j<h;j++)for(let i=0;i<w;i++)ch[j*w+i]=data[((sy+j)*W+(sx+i))*4+c];
-    const blur=boxBlur1(ch,w,h,r);
-    for(let j=0;j<h;j++)for(let i=0;i<w;i++){
-      const ed=Math.min(i,j,w-1-i,h-1-j);
-      const a=AMOUNT*Math.min(1,ed/feather);
-      if(a<=0)continue;
-      const d=((y+j)*W+(x+i))*4+c;
-      data[d]=data[d]+(ch[j*w+i]-blur[j*w+i])*a;
-    }
-  }
-  return true;
-}
-
-// 轻度锐化（unsharp mask）：只作用于修复框区域（含少量过渡带），
-// 未修复的原图区域逐像素保持原样，兑现"保护原始细节"的承诺。
-function sharpen(imgData,W,H,amount,rects){
+// 轻度锐化（unsharp mask）：只增强修复区域，框外像素保持原样
+function sharpen(imgData,W,H,amount,touched){
   const src=imgData.data;
   const out=new ImageData(new Uint8ClampedArray(src),W,H);
   const d=out.data;
-  const pad=4; // 过渡带：修复区边缘向外多锐化 4px，避免锐化边界产生亮线
-  const zones=(rects&&rects.length?rects:[{x:0,y:0,w:W,h:H}]);
-  for(const z of zones){
-    const x0=Math.max(1,z.x-pad), y0=Math.max(1,z.y-pad);
-    const x1=Math.min(W-1,z.x+z.w+pad), y1=Math.min(H-1,z.y+z.h+pad);
-    for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
-      const i=(y*W+x)*4;
-      for(let c=0;c<3;c++){
-        const v=src[i+c];
-        const n=(src[i-4+c]+src[i+4+c]+src[i-W*4+c]+src[i+W*4+c])*0.25;
-        d[i+c]=v+(v-n)*amount;
-      }
+  // 允许修改的像素掩码
+  const allow=new Uint8Array(W*H);
+  if(touched&&touched.length){
+    for(const r of touched){
+      for(let yy=Math.max(1,r.y);yy<Math.min(H-1,r.y+r.h);yy++)
+        for(let xx=Math.max(1,r.x);xx<Math.min(W-1,r.x+r.w);xx++){
+          // 线条轮廓带 mask：只增强多边形内像素，保证轮廓外逐字节不变；矩形无 mask 沿用整框
+          if(r.mask&&!r.mask[(yy-r.y)*r.w+(xx-r.x)])continue;
+          allow[yy*W+xx]=1;
+        }
+    }
+  }else{
+    allow.fill(1);
+  }
+  for(let y=1;y<H-1;y++)for(let x=1;x<W-1;x++){
+    if(!allow[y*W+x])continue;
+    const i=(y*W+x)*4;
+    for(let c=0;c<3;c++){
+      const v=src[i+c];
+      const n=(src[i-4+c]+src[i+4+c]+src[i-W*4+c]+src[i+W*4+c])*0.25;
+      d[i+c]=v+(v-n)*amount;
     }
   }
   return out;
@@ -1242,7 +1164,7 @@ const box=$('compareBox'),handle=$('handle');let dragging=false;
 function slide(e){
   const b=box.getBoundingClientRect();
   let px=(e.touches?e.touches[0].clientX:e.clientX)-b.left;
-  px=Math.max(b.width*0.04,Math.min(b.width*0.96,px)); // 留 4% 边距，避免一侧完全消失
+  px=Math.max(0,Math.min(b.width,px));
   const p=px/b.width*100;
   $('imgBefore').style.clipPath=`inset(0 ${100-p}% 0 0)`;
   handle.style.left=p+'%';
@@ -1255,93 +1177,17 @@ box.addEventListener('touchstart',e=>{dragging=true;slide(e)},{passive:false});
 window.addEventListener('touchmove',e=>{if(dragging)slide(e)},{passive:false});
 window.addEventListener('touchend',()=>dragging=false);
 
-// dataURL -> Blob：用 Blob/objectURL 下载，避免超大 dataURL 在部分浏览器被拒绝
-function dataURLToBlob(dataUrl){
-  const parts=String(dataUrl).split(',');
-  const mime=(parts[0].match(/:(.*?);/)||[])[1]||'image/png';
-  const bin=atob(parts[1]||'');
-  const len=bin.length, bytes=new Uint8Array(len);
-  for(let i=0;i<len;i++)bytes[i]=bin.charCodeAt(i);
-  return new Blob([bytes],{type:mime});
-}
-
 function downloadResult(){
-  if(!S.resultData){toast('请先修复图片再下载');return}
-  // 文件名带时间戳，避免多次下载互相覆盖
-  const now=new Date();
-  const ts=`${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}_${String(now.getHours()).padStart(2,'0')}${String(now.getMinutes()).padStart(2,'0')}${String(now.getSeconds()).padStart(2,'0')}`;
-  const fileName=`净像_修复结果_${ts}.png`;
-  const ua=navigator.userAgent||'';
-  const isMobile=/Android|iPhone|iPad|iPod|Mobile|MicroMessenger|Weibo|QQ\//i.test(ua);
-  const isIOS=/iPad|iPhone|iPod/i.test(ua)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
-
-  // 方案 1：现代浏览器标准下载（Blob + objectURL + 临时 a 节点）
-  try{
-    const blob=dataURLToBlob(S.resultData);
-    const url=URL.createObjectURL(blob);
-    const a=document.createElement('a');
-    a.href=url;a.download=fileName;
-    a.style.display='none';
-    a.rel='noopener';
-    document.body.appendChild(a);      // 关键：必须插入 DOM，部分浏览器才响应 click
-    a.click();
-    setTimeout(()=>{document.body.removeChild(a);URL.revokeObjectURL(url)},1500);
-    // 移动端（尤其 iOS/微信）常忽略 download，需提示用户确认，并给出保存面板兜底
-    if(isMobile){
-      toast('已触发下载，如未保存到相册可长按下方图片');
-      setTimeout(()=>openSaveSheet(S.resultData),400);
-    }else{
-      toast('已开始下载修复结果');
-    }
-    return;
-  }catch(err){
-    console.error('objectURL 下载失败，尝试备用方式：',err);
-  }
-
-  // 方案 2：直接用 dataURL + a.download（老浏览器兜底）
-  try{
-    const a=document.createElement('a');
-    a.href=S.resultData;a.download=fileName;a.style.display='none';
-    document.body.appendChild(a);a.click();document.body.removeChild(a);
-    toast('已触发下载，请检查下载目录');
-    return;
-  }catch(err2){
-    console.error('dataURL 下载失败，打开保存面板：',err2);
-  }
-
-  // 方案 3：以上都失败，展示图片让用户手动长按/右键保存
-  openSaveSheet(S.resultData);
-  toast('浏览器阻止了自动下载，请长按图片保存');
+  if(!S.resultData)return;
+  const a=document.createElement('a');a.href=S.resultData;a.download='净像_修复结果.png';a.click();
+  toast('已下载修复结果');
 }
-
-// 打开/关闭保存面板
-function openSaveSheet(src){
-  const sheet=$('saveSheet');
-  $('ssImg').src=src||S.resultData||'';
-  sheet.classList.add('show');
-}
-function closeSaveSheet(){
-  const sheet=$('saveSheet');
-  if(sheet)sheet.classList.remove('show');
-}
-$('ssClose').onclick=closeSaveSheet;
-$('saveSheet').onclick=e=>{if(e.target===$('saveSheet'))closeSaveSheet()};
-document.addEventListener('keydown',e=>{if(e.key==='Escape')closeSaveSheet()});
-
-// 重置：openNext=true 表示自动打开文件选择框，便于“撤销后重新选择图片”
-function resetAll(openNext){
-  loadSeq++;                       // 让在途加载失效
-  S.rects=[];S.resultData=null;S.activeBox=0;S.linePts=[];
-  S.action=null;S.orig=null;S.handle=null;S.start=null;S.cur=null;S.detection=null;
+function resetAll(){
+  S.rects=[];S.resultData=null;
+  lineState.shapes=[];lineState.pts=[];lineState.active=false;lineState.sel=null;lineState.act=null;
   $('editor').classList.remove('active');$('compare').classList.remove('active');
-  $('btnText').textContent='开始修复';
-  clearDetect();updateReadout();
-  closeSaveSheet();
-  dz.style.display='flex';
-  try{$('fileInput').value=''}catch(_){}
-  $('fileInfo').textContent='尚未选择图片';
+  dz.style.display='flex';$('fileInput').value='';$('fileInfo').textContent='尚未选择图片';
   setFlow(1);checkReady();window.scrollTo({top:0,behavior:'smooth'});
-  if(openNext===true)setTimeout(()=>fi.click(),120);
 }
 function setFlow(n){
   document.querySelectorAll('.flow-step').forEach(s=>{

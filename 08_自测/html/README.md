@@ -12,7 +12,15 @@ node run.js           # 18 项断言（6 场景 × 3 模式），有失败时退
 python compare.py     # 生成 对比图.png（前 3 个场景，上原图下修复后）
 python make_e2e.py    # 生成浏览器端到端测试页 _tmp/e2e.html
 node test_backend_page.js   # 后端对接版：框架/提示词/多框/轮廓去除 15 项
+node test_normal_page.js    # 普通版(2)：优化前后行为等价 + 结构回归 22 项
 ```
+
+`test_normal_page.js` 测的是当前权威文件
+`净像去水印_普通版_双击即用(2).html`：它把优化前备份
+`_tmp/normal_before_optimize.html` 与新版本同时载入沙箱，对三模式共 72 组
+随机输入逐字节比对 `lineRemove` 输出，并断言 11 个矩形/共用算法函数逐字未变、
+`S`/`CONFIG` 字段未变、`FILL` 常量数值与矩形路径一致、贴边/退化多边形边界安全。
+备份缺失时等价性部分自动跳过，结构回归仍会执行。
 
 浏览器端到端（验证真实页面逻辑：识别/框选/三模式/三档/整图框）：
 
