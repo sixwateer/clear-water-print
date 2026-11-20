@@ -78,9 +78,9 @@ _PROMPT_TARGET_PATTERNS = [
 
 
 def parse_prompt(text: str) -> dict:
-    """本地解析提示词，输出 {raw,target,fill,framework,intent}。无网络请求。"""
+    """本地解析提示词，输出 {raw,target,fill,framework,intent,matched}，与小程序 utils/prompt.js 同构。无网络请求。"""
     s = (text or "").strip()
-    out = {"raw": s, "target": "", "fill": "", "framework": "", "intent": ""}
+    out = {"raw": s, "target": "", "fill": "", "framework": "", "intent": "", "matched": []}
     if not s:
         return out
     for pat in _PROMPT_TARGET_PATTERNS:
@@ -93,6 +93,7 @@ def parse_prompt(text: str) -> dict:
     for rx, fill, framework in PROMPT_RULES:
         if rx.search(s):
             out["fill"], out["framework"] = fill, framework
+            out["matched"].append(fill)
             break
     parts = []
     if out["target"]:
@@ -339,8 +340,14 @@ async def _build_context(
     authorized: bool,
     prefer_engine: str,
     strict_quality: bool,
+    framework: str = "smart",
+    prompt: str = "",
 ) -> tuple[ProcessContext | None, JSONResponse | None]:
-    """从请求参数构建处理上下文。"""
+    """从请求参数构建处理上下文。
+
+    framework 在此处按提示词解析为实际算法（smart|texture|average）后注入 ctx，
+    确保修复引擎真正按所选框架工作，而不是退化到默认 auto 路径。
+    """
     image = None
     if file is not None:
         try:
@@ -358,6 +365,8 @@ async def _build_context(
     if rect_err:
         return None, JSONResponse({"error": rect_err}, status_code=400)
 
+    # prompt 框架在此解析为实际算法；其余框架保持用户所选
+    framework_used, _fw_info = resolve_framework(framework, prompt)
     ctx = ProcessContext(
         image=image,
         source_url=source_url,
@@ -369,6 +378,7 @@ async def _build_context(
         face=face,
         authorized=authorized,
         prefer_engine=prefer_engine,
+        framework=framework_used,
     )
     _remember_task(ctx.task_id, {"status": "created", "created_at": time.time()})
     return ctx, None
@@ -397,6 +407,7 @@ async def process_fusion(
     ctx, err = await _build_context(
         file, rects, source_url, watermark_type, template_id,
         strength, enhance, face, authorized, prefer_engine, strict_quality,
+        framework, prompt,
     )
     if err:
         return err
@@ -526,6 +537,7 @@ async def process_fusion_json(
     ctx, err = await _build_context(
         file, rects, source_url, watermark_type, template_id,
         strength, enhance, face, authorized, prefer_engine, strict_quality,
+        framework, prompt,
     )
     if err:
         return err

@@ -31,6 +31,7 @@ class OpenCVFusionEngine(FusionEngine):
             strength=ctx.strength,
             enhance=ctx.enhance,
             face=ctx.face,
+            framework=getattr(ctx, "framework", None),
         )
         return EngineOutcome(
             image=result.image,

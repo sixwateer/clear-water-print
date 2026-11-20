@@ -160,6 +160,62 @@ class OpenCVEngine(BaseEngine):
 
         return SR[py0:py0 + bh, px0:px0 + bw]
 
+    # ---------------- 平均色填充（framework=average，对齐 HTML fillAverage） ----------------
+    @staticmethod
+    def _average_fill(bgr: np.ndarray, x1: int, y1: int, x2: int, y2: int) -> np.ndarray:
+        """取框外一圈边界的平均色平铺整个框，最快；适合小面积、纯色背景。"""
+        h, w = bgr.shape[:2]
+        pad = 2
+        ey1, ey2 = max(0, y1 - pad), min(h, y2 + pad)
+        ex1, ex2 = max(0, x1 - pad), min(w, x2 + pad)
+        ring = np.ones((ey2 - ey1, ex2 - ex1), bool)
+        ry0, ry1 = y1 - ey1, y2 - ey1
+        rx0, rx1 = x1 - ex1, x2 - ex1
+        ry1, rx1 = max(ry0 + 1, ry1), max(rx0 + 1, rx1)
+        ring[ry0:ry1, rx0:rx1] = False
+        patch = bgr[ey1:ey2, ex1:ex2]
+        if ring.any():
+            mean = patch[ring].mean(axis=0)
+        else:
+            mean = patch.reshape(-1, 3).mean(axis=0)
+        out = bgr.copy()
+        out[y1:y2, x1:x2] = np.clip(mean, 0, 255).astype(bgr.dtype)
+        return out
+
+    # ---------------- 智能整框重建（framework=smart，对齐 HTML smartFill） ----------------
+    def _smart_fill(
+        self,
+        bgr: np.ndarray,
+        rects: list[dict],
+        detection: dict | None,
+        radius: int,
+    ) -> np.ndarray:
+        """整框重建：渐变/纯色用 Coons 插值保真，纹理/照片用 Telea 整框扩散。
+
+        与 HTML 权威版 smartFill 一致——重建整个框而非仅命中笔画，因此能彻底
+        去除半透明、抗锯齿的文字水印（stroke 模式对此类水印会大量残留）。
+        """
+        out = bgr.copy()
+        ctype = (detection or {}).get("type", "photo")
+        h, w = bgr.shape[:2]
+        for r in rects:
+            x1 = max(0, int(r.get("x", 0)))
+            y1 = max(0, int(r.get("y", 0)))
+            x2 = min(w, int(r.get("x", 0) + r.get("w", 0)))
+            y2 = min(h, int(r.get("y", 0) + r.get("h", 0)))
+            bw, bh = x2 - x1, y2 - y1
+            if bw < 8 or bh < 8:
+                continue
+            if ctype in ("solid", "gradient"):
+                filled = self._smooth_fill(bgr, x1, y1, x2, y2)
+                out[y1:y2, x1:x2] = np.clip(filled, 0, 255).astype(bgr.dtype)
+            else:
+                fullmask = np.zeros((h, w), np.uint8)
+                fullmask[y1:y2, x1:x2] = 255
+                fr = cv2.inpaint(bgr, fullmask, radius, cv2.INPAINT_TELEA)
+                out[y1:y2, x1:x2] = fr[y1:y2, x1:x2]
+        return out
+
     def _texture_fill(
         self,
         bgr: np.ndarray,
@@ -216,12 +272,18 @@ class OpenCVEngine(BaseEngine):
         enhance: bool = True,
         face: bool = False,
         method: str = "auto",
+        framework: str | None = None,
         **kwargs,
     ) -> EngineResult:
         """对图片框选区域执行修复。
 
         method: ``auto``（默认，智能选择）/ ``texture``（纹理融合）/
         ``telea`` / ``ns``（经典扩散）。
+
+        framework: ``smart`` / ``texture`` / ``average``（与权威 HTML 三模式一致）。
+        ``smart`` 走整框智能重建（渐变用 Coons、纯色/照片用 Telea），能去除
+        半透明抗锯齿文字；``texture`` 走纹理融合；``average`` 走边缘平均色平铺。
+        传 ``None`` 时保持旧 method 行为（兼容既有调用与测试）。
         """
         t0 = time.perf_counter()
         rgb = image.convert("RGB")
@@ -253,8 +315,29 @@ class OpenCVEngine(BaseEngine):
             detection = self.detect_content(image, rects[0])
             actual_method = detection["suggest_method"]
 
+        # framework 驱动（与权威 HTML 三模式一致）：让所选框架真正决定算法。
+        # smart 走整框智能重建，可去除半透明抗锯齿文字；texture 走笔画级纹理融合；
+        # average 走边缘平均色平铺。framework=None 时保持旧行为。
+        if framework in ("smart", "texture", "average") and rects:
+            actual_method = framework
+            if framework == "smart":
+                detection = detection or self.detect_content(image, rects[0])
+
         texture_strategy = None
-        if actual_method == "texture":
+        if actual_method == "average":
+            result_bgr = bgr.copy()
+            for r in rects:
+                x1 = max(0, int(r.get("x", 0)))
+                y1 = max(0, int(r.get("y", 0)))
+                x2 = min(w, int(r.get("x", 0) + r.get("w", 0)))
+                y2 = min(h, int(r.get("y", 0) + r.get("h", 0)))
+                if x2 > x1 and y2 > y1:
+                    result_bgr = self._average_fill(result_bgr, x1, y1, x2, y2)
+            used_flag = cv2.INPAINT_TELEA
+        elif actual_method == "smart":
+            result_bgr = self._smart_fill(bgr, rects, detection, radius)
+            used_flag = cv2.INPAINT_TELEA
+        elif actual_method == "texture":
             result_bgr, texture_strategy = self._texture_fill(bgr, mask, rects, radius)
             used_flag = cv2.INPAINT_TELEA
         elif actual_method == "ns":
@@ -288,7 +371,8 @@ class OpenCVEngine(BaseEngine):
         elapsed = (time.perf_counter() - t0) * 1000
         flag_name = "NS" if used_flag == cv2.INPAINT_NS else "TELEA"
         meta = {
-            "method": method, "actual_method": actual_method, "radius": radius,
+            "method": method, "framework": framework, "actual_method": actual_method,
+            "radius": radius,
             "dilate": kernel, "enhance": enhance, "used_flag": flag_name,
         }
         if texture_strategy:

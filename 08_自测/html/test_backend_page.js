@@ -114,6 +114,29 @@ check('提示词解析：与小程序 prompt.js 的示例一致', function () {
   assert.strictEqual(mini.framework, backend.framework);
 });
 
+check('提示词解析：matched 字段与小程序 prompt.js 同构', function () {
+  const src = fs.readFileSync(MINI_JS, 'utf8');
+  const mm = src.match(/var EXAMPLE\s*=\s*'([^']+)'/);
+  const backend = ctx.parsePrompt(mm[1]);
+  assert.ok(Array.isArray(backend.matched), '后端 parsePrompt 应返回 matched 数组');
+  assert.strictEqual(JSON.stringify(backend.matched), JSON.stringify(['衣物/背景纹理']));
+  assert.strictEqual(JSON.stringify(Object.keys(backend).sort()),
+    JSON.stringify(['raw','target','fill','framework','intent','matched'].sort()));
+});
+
+check('小程序同款文案：框架说明/提示词说明/toast 与小程序一致', function () {
+  const idxJs = fs.readFileSync(path.join(ROOT, '04_小程序版/pages/index/index.js'), 'utf8');
+  const idxWxml = fs.readFileSync(path.join(ROOT, '04_小程序版/pages/index/index.wxml'), 'utf8');
+  // 后端框架描述取自小程序 frameworkDesc.prompt
+  const pd = idxJs.match(/prompt:\s*'([^']*按你输入的描述自动选择框架[^']*)'/);
+  assert.ok(pd, '小程序 frameworkDesc.prompt 文案');
+  assert.strictEqual(ctx.__FW.prompt.desc, pd[1]);
+  // 提示词覆盖范围说明与小程序 wxml 逐字一致
+  const note = idxWxml.match(/class="prompt-note">([^<]+)</);
+  assert.ok(note, '小程序 prompt-note 文案');
+  assert.ok(html.indexOf(note[1]) >= 0, '后端版应含同样的提示词说明：' + note[1]);
+});
+
 check('框架切换：点击后更新状态、说明并同步 S.mode', function () {
   ctx.setFramework('texture');
   assert.strictEqual(B.framework, 'texture');

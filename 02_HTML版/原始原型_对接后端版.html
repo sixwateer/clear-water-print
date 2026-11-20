@@ -312,7 +312,7 @@ footer .disc{max-width:620px;margin:0 auto 8px;line-height:1.7}
         <textarea class="prompt-input" id="promptInput" maxlength="300"
           placeholder="描述框住的目标和补全依据，例如：去掉框住的蓝色包，其余按背景和人物衣物补全"></textarea>
         <div class="prompt-intent" id="promptIntent" style="display:none"></div>
-        <div class="prompt-note">仅对框选区域生效；框外像素不做任何改动。</div>
+        <div class="prompt-note">仅对框选/线条区域生效；框外与线条外像素不做任何改动。</div>
       </div>
 
       <div class="panel-section">
@@ -1103,7 +1103,7 @@ const FRAMEWORKS={
   smart:{label:'智能扩散',desc:'智能扩散：依据框外背景颜色向内推算，纯色/渐变背景近乎无痕'},
   texture:{label:'纹理重建',desc:'纹理重建：扩散重建后回注邻近衣物/木纹高频，纹理背景不糊成平色'},
   average:{label:'快速填充',desc:'快速填充：取边缘平均色平铺，适合面积很小、背景单一的目标'},
-  prompt:{label:'提示词引导',desc:'提示词引导：按你输入的描述自动选择上面三种之一；留空时用智能扩散'}
+  prompt:{label:'提示词引导',desc:'提示词引导：按你输入的描述自动选择框架；未写提示词时用智能扩散'}
 };
 const PROMPT_RULES=[
   {re:/纹理|衣物|衣服|衣料|布料|条纹|木纹|草地|毛发|织物|褶皱/,fill:'衣物/背景纹理',framework:'texture'},
@@ -1113,7 +1113,7 @@ const PROMPT_RULES=[
 ];
 function parsePrompt(text){
   const s=String(text||'').trim();
-  const out={raw:s,target:'',fill:'',framework:'',intent:''};
+  const out={raw:s,target:'',fill:'',framework:'',intent:'',matched:[]};
   if(!s)return out;
   const patterns=[
     /(?:框住|框选|圈住|选中)的?([^，,。；;（）()]{1,24})/,
@@ -1122,7 +1122,7 @@ function parsePrompt(text){
   for(const p of patterns){const m=s.match(p);if(m){
     out.target=m[1].replace(/^(?:是|的|那个|这个)+/,'').replace(/^(?:框住|框选|圈住|选中)的?/,'').trim();break;
   }}
-  for(const r of PROMPT_RULES){if(r.re.test(s)){out.fill=r.fill;out.framework=r.framework;break}}
+  for(const r of PROMPT_RULES){if(r.re.test(s)){out.fill=r.fill;out.framework=r.framework;out.matched.push(r.fill);break}}
   const parts=[];
   if(out.target)parts.push('目标：'+out.target);
   if(out.fill)parts.push('按'+out.fill+'补全');
@@ -1148,7 +1148,7 @@ function setFramework(key){
   document.querySelectorAll('.fw-item').forEach(b=>b.classList.toggle('active',b.dataset.key===key));
   $('fwDesc').textContent=FRAMEWORKS[key].desc;
   syncAlgoParams();
-  if(key==='prompt'&&!B.promptText.trim())toast('可填写提示词，留空则用智能扩散');
+  if(key==='prompt'&&!B.promptText.trim())toast('可填写提示词，或留空用智能扩散');
 }
 function onPromptInput(e){
   B.promptText=(e.target.value||'').slice(0,300);

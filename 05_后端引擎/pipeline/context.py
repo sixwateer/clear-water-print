@@ -30,6 +30,7 @@ class ProcessContext:
     face: bool = False
     authorized: bool = False                    # 合规：授权确认
     prefer_engine: str = "auto"                 # 调用方可指定优先引擎
+    framework: str = "smart"                    # 修复框架 smart|texture|average（prompt 已解析为实际值），真正驱动修复算法
 
     # --- 运行时状态 ---
     task_id: str = field(default_factory=lambda: uuid.uuid4().hex[:12])

@@ -149,9 +149,11 @@ class LamaInpainting(InpaintingStep):
                     raise InpaintingError(f"LaMA 推理失败: {e}", cause=e)
         if not self.allow_fallback:
             raise InpaintingError("LaMA 依赖未安装且禁止降级")
-        # 降级：OpenCV Telea 修复
+        # 降级：OpenCV 修复。传入 framework 让所选框架真正生效（smart 整框重建
+        # 可去除半透明文字），不传则保留旧 auto 行为。
         out = _cv.inpaint(ctx.image, rects, strength=ctx.strength,
-                          enhance=False, face=False)
+                          enhance=False, face=False,
+                          framework=getattr(ctx, "framework", None))
         return StepResult(out.image, True, {"impl": "opencv-telea-fallback"})
 
 

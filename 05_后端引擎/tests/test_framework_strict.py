@@ -32,6 +32,11 @@ class TestPromptParsing(unittest.TestCase):
         self.assertEqual(info["target"], "蓝色包")
         self.assertEqual(info["framework"], "texture")
         self.assertIn("衣物", info["intent"])
+        self.assertEqual(info["matched"], ["衣物/背景纹理"])
+        self.assertEqual(
+            set(info.keys()),
+            {"raw", "target", "fill", "framework", "intent", "matched"},
+        )
 
     def test_gradient_and_average(self):
         self.assertEqual(parse_prompt("去掉框住的水印，背景是渐变色")["framework"], "smart")
