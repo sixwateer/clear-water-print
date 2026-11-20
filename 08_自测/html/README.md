@@ -11,7 +11,8 @@ python prepare.py     # 把真实测试图转成 _tmp/wood.bin（8.3MB，临时�
 node run.js           # 18 项断言（6 场景 × 3 模式），有失败时退出码为 1
 python compare.py     # 生成 对比图.png（前 3 个场景，上原图下修复后）
 python make_e2e.py    # 生成浏览器端到端测试页 _tmp/e2e.html
-node test_backend_page.js   # 后端对接版：框架/提示词/多框/轮廓去除 15 项
+node test_backend_page.js   # 后端对接版：框架/提示词/多框/线条去除 16 项
+node test_backend_align.js  # 后端版 vs 11:06 定稿：lineRemove/repair/交互逐字节一致 14 项
 node test_normal_page.js    # 普通版(2)：优化前后行为等价 + 结构回归 22 项
 ```
 
@@ -42,9 +43,14 @@ node test_normal_page.js    # 普通版(2)：优化前后行为等价 + 结构�
 依赖：Node ≥ 16；Python 3 + Pillow + NumPy（prepare/compare/make_e2e 需要）。
 
 `test_backend_page.js` 测的是**后端对接版**页面：从 HTML 抽取 `<script>` 在 Node 沙箱里
-用最小 DOM mock 执行，验证四框架切换、示例提示词解析（并与小程序 `utils/prompt.js`
-的示例做跨端一致性比对）、换图保留设置、以及 `FormData` 是否带上
-`framework/prompt/strict_box` 并正确读取新响应头。
+用最小 DOM mock 执行，验证四框架切换与 `S.mode` 同步、示例提示词解析（并与小程序 `utils/prompt.js`
+的示例做跨端一致性比对）、换图保留设置、`lineState` 线条入列不污染 `S.rects`、
+统一选中态删除、以及 `FormData` 是否带上 `framework/prompt/strict_box` 并正确读取新响应头。
+
+`test_backend_align.js` 把**定稿普通版**与**后端对接版**两份脚本同时载入隔离沙箱，
+对同一输入比对：`lineRemove` 三形状 × 三模式逐字节一致、`repair()` 三模式输出一致、
+矩形/线条的 8 手柄缩放结果一致。它证明后端版"除界面外"的修复效果与定稿完全等价
+（在线走 API 时由后端 `engines/line_inpaint.py` 保证同样等价）。
 
 ## 测的是什么
 

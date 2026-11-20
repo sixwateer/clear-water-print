@@ -1,9 +1,9 @@
 /**
- * 后端对接版 HTML 新功能回归测试（Node 直接运行）
+ * 后端对接版 HTML 回归测试（Node 直接运行）
  *   node 08_自测/html/test_backend_page.js
  *
- * 做法：从交付的 HTML 中抽取 <script>，在 Node 沙箱里用最小 DOM mock 执行，
- * 测的是页面里的真代码，不是抄写的副本。
+ * 状态模型已与 11:06 定稿统一：修复状态在 S / lineState，
+ * 后端对接状态独立在 B。测试针对页面里的真代码。
  */
 const fs = require('fs');
 const vm = require('vm');
@@ -21,14 +21,13 @@ function check(name, fn) { tests.push([name, fn]); }
 const html = fs.readFileSync(HTML, 'utf8');
 const m = html.match(/<script>([\s\S]*?)<\/script>/);
 assert.ok(m, '未找到页面脚本');
-const code = m[1] + '\n;globalThis.__S=S;globalThis.__FW=FRAMEWORKS;globalThis.__CFG=CONFIG;globalThis.__setBase=function(v){baseImage=v};';
-// 语法检查：构造时即抛错
-new Function(code);
+const code = m[1] + '\n;globalThis.__S=S;globalThis.__B=B;globalThis.__LS=lineState;globalThis.__FW=FRAMEWORKS;globalThis.__CFG=CONFIG;globalThis.__setBase=function(v){baseImage=v};';
+new Function(code); // 语法检查
 
 function makeEl(id) {
   const ctxMock = new Proxy({}, { get: (t, k) => (k === 'measureText' ? function () { return { width: 40 }; } : (k in t ? t[k] : () => {})) });
   return {
-    id, style: {}, dataset: {}, value: '', textContent: '', innerHTML: '',
+    id, style: {}, dataset: {}, value: 'smart', textContent: '', innerHTML: '',
     width: 720, height: 480,
     classList: { add() {}, remove() {}, toggle() {}, contains() { return false; } },
     addEventListener() {}, getContext() { return ctxMock; },
@@ -41,7 +40,7 @@ function makeEl(id) {
 const els = {};
 const captured = {};
 function buildContext() {
-  Object.keys(els).forEach(function (k) { delete els[k]; }); // 每次用全新 mock 元素
+  Object.keys(els).forEach(function (k) { delete els[k]; });
   const document = {
     getElementById(id) { return els[id] || (els[id] = makeEl(id)); },
     querySelector() { return null; },
@@ -53,7 +52,8 @@ function buildContext() {
     window: { addEventListener() {}, scrollTo() {} },
     console: { log() {}, warn() {}, error() {} },
     setTimeout, clearTimeout, Math, Date, JSON, Object, Array, String, Number,
-    Boolean, RegExp, Error, parseInt, parseFloat, isNaN, Uint8Array, Float32Array,
+    Boolean, RegExp, Error, parseInt, parseFloat, isNaN, Uint8Array, Uint8ClampedArray,
+    Float32Array, Uint32Array, Promise,
     AbortSignal: { timeout() { return {}; } },
     URL: { createObjectURL() { return 'blob:mock'; }, revokeObjectURL() {} },
     Image: class { set src(v) {} },
@@ -81,11 +81,20 @@ function buildContext() {
 }
 
 const ctx = buildContext();
-const S = ctx.__S;
+const S = ctx.__S, B = ctx.__B, LS = ctx.__LS;
 
 check('脚本语法与加载：页面初始化成功', function () {
-  assert.ok(S && ctx.__FW && ctx.__CFG, '脚本应成功执行');
-  assert.strictEqual(S.framework, 'smart');
+  assert.ok(S && B && LS && ctx.__FW && ctx.__CFG, '脚本应成功执行');
+  assert.strictEqual(B.framework, 'smart');
+  assert.strictEqual(LS.tool, 'rect');
+});
+
+check('权威状态：S 与定稿逐字段一致', function () {
+  assert.deepStrictEqual(Object.keys(S).sort(),
+    ['drawing','img','iter','mode','resultData','scale','sharpen','start','cur','rects'].sort());
+  assert.strictEqual(S.mode, 'smart');
+  assert.strictEqual(S.iter, 2);
+  assert.strictEqual(S.sharpen, true);
 });
 
 check('提示词解析：示例提示词 → 蓝色包 / 纹理重建', function () {
@@ -105,24 +114,27 @@ check('提示词解析：与小程序 prompt.js 的示例一致', function () {
   assert.strictEqual(mini.framework, backend.framework);
 });
 
-check('框架切换：点击后更新状态与说明', function () {
+check('框架切换：点击后更新状态、说明并同步 S.mode', function () {
   ctx.setFramework('texture');
-  assert.strictEqual(S.framework, 'texture');
-  assert.ok(els.fwDesc.innerHTML === undefined || els.fwDesc.textContent.indexOf('纹理') >= 0);
+  assert.strictEqual(B.framework, 'texture');
+  assert.strictEqual(S.mode, 'texture');
+  assert.ok(els.fwDesc.textContent.indexOf('纹理') >= 0);
 });
 
 check('提示词框架：按解析结果选算法，空提示词回退智能扩散', function () {
   ctx.setFramework('prompt');
   ctx.onPromptInput({ target: { value: ctx.__CFG.promptExample } });
   assert.strictEqual(ctx.resolveFramework().actual, 'texture');
+  assert.strictEqual(S.mode, 'texture');
   assert.ok(els.promptIntent.textContent.indexOf('蓝色包') >= 0);
   ctx.onPromptInput({ target: { value: '' } });
   assert.strictEqual(ctx.resolveFramework().actual, 'smart');
+  assert.strictEqual(S.mode, 'smart');
 });
 
 check('用示例按钮：填入提示词并展示意图', function () {
   ctx.useExamplePrompt();
-  assert.ok(S.promptText.indexOf('蓝色包') >= 0);
+  assert.ok(B.promptText.indexOf('蓝色包') >= 0);
   assert.ok(els.promptIntent.textContent.indexOf('衣物') >= 0);
 });
 
@@ -132,13 +144,13 @@ check('换下一张照片：触发文件选择且不重置框架/提示词', fun
   const before = els.fileInput._clicked || 0;
   ctx.nextImage();
   assert.strictEqual(els.fileInput._clicked, before + 1);
-  assert.strictEqual(S.framework, 'prompt');
-  assert.ok(S.promptText.length > 0);
+  assert.strictEqual(B.framework, 'prompt');
+  assert.ok(B.promptText.length > 0);
 });
 
 check('后端交互：FormData 携带 framework/prompt/strict_box', async function () {
-  S.serverOnline = true;
-  S.file = {}; S.rects = [{ x: 1, y: 1, w: 10, h: 10 }]; S.scale = 1; S.img = {};
+  B.serverOnline = true;
+  B.file = {}; S.rects = [{ x: 1, y: 1, w: 10, h: 10 }]; S.scale = 1;
   ctx.setFramework('prompt');
   ctx.onPromptInput({ target: { value: ctx.__CFG.promptExample } });
   const result = await ctx.callBackend();
@@ -151,38 +163,39 @@ check('后端交互：FormData 携带 framework/prompt/strict_box', async functi
   assert.ok(result.intent.indexOf('蓝色包') >= 0);
 });
 
-check('多框：最多 3 个，超出替换当前框', function () {
-  S.rects = []; S.activeBox = 0; S.tool = 'rect';
-  for (let i = 0; i < 5; i++) ctx.commitBox({ x: i * 10, y: 10, w: 20, h: 20 });
-  assert.strictEqual(S.rects.length, 3);
+check('多框：矩形可连续添加，互不覆盖', function () {
+  S.rects = []; LS.sel = null;
+  for (let i = 0; i < 5; i++) S.rects.push({ x: i * 10, y: 10, w: 20, h: 20 });
+  assert.strictEqual(S.rects.length, 5);
 });
 
-check('线条框选：轨迹外接矩形标记为自定义框', function () {
-  S.rects = []; S.activeBox = 0; S.tool = 'line';
-  S.action = 'line';
-  S.linePts = [{ x: 10, y: 10 }, { x: 30, y: 20 }, { x: 50, y: 40 }];
+check('线条框选：画一圈后进入 lineState.shapes，不污染 S.rects', function () {
+  S.rects = []; LS.shapes = []; LS.sel = null; LS.tool = 'line';
+  LS.active = true; LS.pts = [{x:10,y:10},{x:30,y:20},{x:50,y:40},{x:10,y:40}];
   ctx.up(null);
-  assert.strictEqual(S.rects.length, 1);
-  assert.strictEqual(S.rects[0].kind, 'line');
-  assert.strictEqual(S.rects[0].w, 40);
-  assert.strictEqual(S.rects[0].h, 30);
+  assert.strictEqual(S.rects.length, 0);
+  assert.strictEqual(LS.shapes.length, 1);
+  assert.strictEqual(LS.shapes[0].length, 4);
+  assert.ok(LS.sel && LS.sel.kind === 'line');
 });
 
-check('删除当前框：只删一个而非清空', function () {
+check('删除当前框：通过统一选中态只删一个', function () {
   S.rects = [{ x: 1, y: 1, w: 2, h: 2 }, { x: 5, y: 5, w: 2, h: 2 }];
-  S.activeBox = 1;
+  LS.shapes = []; LS.sel = { kind: 'rect', index: 1 };
   els.toolDel.onclick();
   assert.strictEqual(S.rects.length, 1);
   assert.strictEqual(S.rects[0].x, 1);
 });
 
-check('后端交互：三个框全部提交且只含 x/y/w/h', async function () {
+check('后端交互：多个矩形全部提交且只含 x/y/w/h', async function () {
   S.rects = [
-    { x: 1, y: 2, w: 3, h: 4, kind: 'line' },
+    { x: 1, y: 2, w: 3, h: 4 },
     { x: 5, y: 6, w: 7, h: 8 },
     { x: 9, y: 10, w: 11, h: 12 }
   ];
-  S.serverOnline = true; S.file = {}; S.scale = 1; S.img = {};
+  LS.shapes = [];
+  B.serverOnline = true; B.file = {}; S.scale = 1;
+  captured.rects = 'SENTINEL';
   await ctx.callBackend();
   const sent = JSON.parse(captured.rects);
   assert.strictEqual(sent.length, 3);
@@ -197,29 +210,26 @@ check('结果展示：对比线归位到中央（回归手柄贴左）', functio
   assert.ok(String(els.imgBefore.style.clipPath).indexOf('50%') >= 0);
 });
 
-check('轮廓线稿：保留轨迹点并自动闭合，不再取外接矩形', function () {
-  S.rects = []; S.activeBox = 0; S.tool = 'line';
-  S.action = 'line';
-  S.linePts = [{ x: 10, y: 10 }, { x: 50, y: 10 }, { x: 50, y: 50 }, { x: 45, y: 48 }];
+check('轮廓线稿：保留原始轨迹点（不强制闭合），供多边形 mask 使用', function () {
+  S.rects = []; LS.shapes = []; LS.sel = null; LS.tool = 'line';
+  LS.active = true; LS.pts = [{x:10,y:10},{x:50,y:10},{x:50,y:50},{x:45,y:48}];
   ctx.up(null);
-  const r = S.rects[0];
-  assert.ok(r && r.points && r.points.length === 5, '应为 4 点 + 闭合点');
-  assert.strictEqual(r.kind, 'line');
-  assert.deepStrictEqual(r.points[0], r.points[r.points.length - 1]);
+  assert.strictEqual(LS.shapes.length, 1);
+  assert.strictEqual(LS.shapes[0].length, 4);
+  assert.notDeepStrictEqual(LS.shapes[0][0], LS.shapes[0][3]);
 });
 
 check('后端交互：轮廓走 contour + polygon，矩形才走 rects', async function () {
-  S.serverOnline = true; S.file = {}; S.scale = 1; S.img = {};
-  S.rects = [{ x: 10, y: 10, w: 40, h: 40, kind: 'line', points: [
-    { x: 10, y: 10 }, { x: 50, y: 10 }, { x: 50, y: 50 }, { x: 10, y: 50 }, { x: 10, y: 10 }
-  ] }];
+  B.serverOnline = true; B.file = {}; S.scale = 1;
+  S.rects = [];
+  LS.shapes = [[{x:10,y:10},{x:50,y:10},{x:50,y:50},{x:10,y:50}]];
   captured.rects = 'SENTINEL';
   await ctx.callBackend();
   assert.strictEqual(captured.effect, 'contour');
   const polys = JSON.parse(captured.polygon);
   assert.strictEqual(polys.length, 1);
-  assert.strictEqual(polys[0].length, 5);
-  assert.strictEqual(captured.rects, 'SENTINEL', 'sketch 时不应提交矩形框');
+  assert.strictEqual(polys[0].length, 4);
+  assert.strictEqual(captured.rects, 'SENTINEL', '线条路径不应提交矩形框');
 });
 
 (async function () {
