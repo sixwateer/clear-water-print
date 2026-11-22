@@ -13,6 +13,27 @@
     <text class="upload-title">选择一张图片</text>
     <text class="upload-desc">支持相册或拍照 · JPG / PNG</text>
     <button class="btn-primary" bindtap="chooseImage">选择图片</button>
+    <view class="scene-block">
+      <text class="scene-title">或按场景快速开始</text>
+      <view class="scene-row">
+        <view class="scene-item" wx:for="{{scenes}}" wx:key="key"
+          data-key="{{item.key}}" bindtap="chooseScene">
+          <text class="scene-label">{{item.label}}</text>
+          <text class="scene-desc">{{item.desc}}</text>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 最近修复：本地缓存，点击预览 -->
+  <view class="card recent-card" wx:if="{{!hasImage && recentItems.length > 0}}">
+    <text class="section-label">最近修复（仅存本机）</text>
+    <scroll-view class="recent-row" scroll-x>
+      <view class="recent-item" wx:for="{{recentItems}}" wx:key="time"
+        data-index="{{index}}" bindtap="previewRecent">
+        <image class="recent-thumb" src="{{item.thumb}}" mode="aspectFill"></image>
+      </view>
+    </scroll-view>
   </view>
 
   <block wx:else>
@@ -54,6 +75,7 @@
     <view class="card" wx:if="{{processed}}">
       <text class="elapsed">{{elapsedText}}</text>
       <button class="btn-primary" bindtap="saveResult">保存到相册</button>
+      <button class="btn-ghost" bindtap="saveCompare">保存前后对比图</button>
       <button class="btn-ghost" bindtap="nextImage">换下一张照片</button>
       <button class="btn-ghost" bindtap="reset">重新选图</button>
     </view>

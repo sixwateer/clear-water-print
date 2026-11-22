@@ -90,13 +90,23 @@ Page({
     promptText: '',
     promptExample: promptUtil.EXAMPLE,
     promptIntent: '',
+    // 最近修复（本地缓存，仅缩略图与参数）
+    recentItems: [],
+    // 学生场景快捷入口：点一下自动套用推荐框架，降低上手门槛
+    scenes: [
+      { key: 'idphoto', label: '证件照', desc: '日期戳/杂物', framework: 'smart' },
+      { key: 'screenshot', label: '截图', desc: '水印/页眉', framework: 'text' },
+      { key: 'post', label: '配图', desc: '标记/贴图', framework: 'texture' }
+    ],
     // 合规
     authorized: false,
     compliance: ''
   },
 
   onLoad: function () {
-    this.setData({ compliance: app.globalData.compliance });
+    let recent = [];
+    try { recent = wx.getStorageSync('recent_repairs') || []; } catch (e) { recent = []; }
+    this.setData({ compliance: app.globalData.compliance, recentItems: recent });
   },
 
   // 获取设备像素比，兼容新旧基础库（getSystemInfoSync 已逐步废弃）
@@ -121,6 +131,16 @@ Page({
     if (t.x != null && t.y != null) return { x: t.x, y: t.y };
     const rect = this._rect || { left: 0, top: 0 };
     return { x: (t.clientX || 0) - rect.left, y: (t.clientY || 0) - rect.top };
+  },
+
+  // 学生场景快捷入口：记住推荐框架后走同一套选图流程
+  chooseScene: function (e) {
+    const key = e && e.currentTarget && e.currentTarget.dataset.key;
+    const scene = (this.data.scenes || []).find(function (s) { return s.key === key; });
+    if (!scene) return;
+    this._sceneFramework = scene.framework; // 选图成功后应用，不进 data
+    wx.showToast({ title: '已选「' + scene.label + '」场景', icon: 'none' });
+    this.chooseImage();
   },
 
   // 选择图片
@@ -172,7 +192,10 @@ Page({
         that._img = null;      // 新图必须重建缓存
         that._preview = null;
         that._linePts = null;
-        that.setData({
+        // 场景快捷入口：应用该场景推荐的框架，用后即清，不影响下次普通选图
+        const sceneFw = that._sceneFramework || null;
+        that._sceneFramework = null;
+        const patch = {
           imagePath: path,
           displayW: dw,
           displayH: dh,
@@ -183,7 +206,9 @@ Page({
           sel: null,
           resultPath: '',
           elapsedText: ''
-        }, function () {
+        };
+        if (sceneFw) patch.framework = sceneFw;
+        that.setData(patch, function () {
           that._drawBase();
         });
       },
@@ -659,6 +684,7 @@ Page({
             });
             wx.hideLoading();
             wx.showToast({ title: '修复完成 · ' + ms + 'ms', icon: 'success' });
+            that._recordRecent(res.tempFilePath);
           },
           fail: function () {
             wx.hideLoading(); that.setData({ busy: false });
@@ -675,6 +701,54 @@ Page({
       wx.showToast({ title: '图片加载失败', icon: 'none' });
     };
     img.src = that.data.imagePath;
+  },
+
+  // 记录最近修复：结果图缩略图(base64)+参数存本地 Storage，不上传服务器。
+  // 失败静默，绝不影响修复主流程。Storage 单 key 上限 1MB，故压到 120px 宽、最多 5 条。
+  _recordRecent: function (resultPath) {
+    try {
+      const that = this;
+      const canvas = wx.createOffscreenCanvas
+        ? wx.createOffscreenCanvas({ type: '2d', width: 120, height: 120 })
+        : null;
+      if (!canvas) return;
+      const ctx = canvas.getContext('2d');
+      const img = canvas.createImage();
+      img.onload = function () {
+        try {
+          const sc = Math.min(120 / img.width, 120 / img.height);
+          const dw = Math.max(1, Math.round(img.width * sc));
+          const dh = Math.max(1, Math.round(img.height * sc));
+          ctx.clearRect(0, 0, 120, 120);
+          ctx.drawImage(img, 0, 0, dw, dh);
+          const dataUrl = canvas.toDataURL('image/jpeg', 0.6);
+          const key = 'recent_repairs';
+          let list = [];
+          try { list = wx.getStorageSync(key) || []; } catch (e) { list = []; }
+          list.unshift({
+            thumb: dataUrl,
+            framework: that.data.framework,
+            time: Date.now()
+          });
+          list = list.slice(0, 5);
+          wx.setStorageSync(key, list);
+          that.setData({ recentItems: list });
+        } catch (e) {}
+      };
+      img.onerror = function () {};
+      img.src = resultPath;
+    } catch (e) {}
+  },
+
+  // 预览最近修复缩略图
+  previewRecent: function (e) {
+    const idx = e && e.currentTarget && e.currentTarget.dataset.index;
+    const list = this.data.recentItems || [];
+    if (idx == null || !list[idx]) return;
+    wx.previewImage({
+      current: list[idx].thumb,
+      urls: list.map(function (x) { return x.thumb; })
+    });
   },
 
   // 保存到相册
@@ -697,6 +771,79 @@ Page({
         }
       }
     });
+  },
+
+  // 保存前后对比图：原图与结果并排，供学生自己发朋友圈/小红书（无诱导分享）
+  saveCompare: function () {
+    const that = this;
+    if (!this.data.resultPath || !this.data.imagePath) return;
+    const W = that._originW, H = that._originH;
+    if (!W || !H) { wx.showToast({ title: '图片信息缺失', icon: 'none' }); return; }
+    const half = Math.floor(W / 2);
+    const canvas = wx.createOffscreenCanvas
+      ? wx.createOffscreenCanvas({ type: '2d', width: W, height: H })
+      : null;
+    if (!canvas) { wx.showToast({ title: '当前微信版本过低', icon: 'none' }); return; }
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#FFFFFF'; ctx.fillRect(0, 0, W, H);
+
+    const before = canvas.createImage();
+    const after = canvas.createImage();
+    let loaded = 0;
+    const draw = function () {
+      if (loaded < 2) return;
+      // 左：原图；右：修复结果，都按半宽等比缩放并居中
+      const drawFit = function (img, x0) {
+        const sc = Math.min(half / img.width, H / img.height);
+        const dw = img.width * sc, dh = img.height * sc;
+        ctx.drawImage(img, x0 + (half - dw) / 2, (H - dh) / 2, dw, dh);
+      };
+      drawFit(before, 0);
+      drawFit(after, half);
+      // 中缝与前后标签
+      ctx.fillStyle = 'rgba(0,0,0,.5)';
+      ctx.fillRect(half - 2, 0, 4, H);
+      const fs = Math.max(16, Math.round(Math.min(W, H) * 0.05));
+      ctx.font = fs + 'px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillStyle = 'rgba(255,255,255,.92)';
+      const pad = fs * 0.4;
+      ctx.fillStyle = 'rgba(0,0,0,.55)';
+      ctx.fillRect(fs, fs, fs * 2 + pad * 2, fs + pad * 2);
+      ctx.fillRect(half + fs, fs, fs * 2 + pad * 2, fs + pad * 2);
+      ctx.fillStyle = '#FFFFFF';
+      ctx.fillText('前', fs + fs + pad, fs * 1.55 + pad);
+      ctx.fillText('后', half + fs + fs + pad, fs * 1.55 + pad);
+
+      wx.canvasToTempFilePath({
+        canvas: canvas,
+        success: function (r) {
+          wx.saveImageToPhotosAlbum({
+            filePath: r.tempFilePath,
+            success: function () { wx.showToast({ title: '对比图已保存', icon: 'success' }); },
+            fail: function (err) {
+              if (err.errMsg && err.errMsg.indexOf('auth') >= 0) {
+                wx.showModal({
+                  title: '需要授权', content: '请在设置中允许保存到相册',
+                  confirmText: '去设置',
+                  success: function (m) { if (m.confirm) wx.openSetting(); }
+                });
+              } else {
+                wx.showToast({ title: '保存失败', icon: 'none' });
+              }
+            }
+          });
+        },
+        fail: function () { wx.showToast({ title: '生成对比图失败', icon: 'none' }); }
+      });
+    };
+    before.onload = function () { loaded++; draw(); };
+    after.onload = function () { loaded++; draw(); };
+    before.onerror = after.onerror = function () {
+      wx.showToast({ title: '图片加载失败', icon: 'none' });
+    };
+    before.src = that.data.imagePath;
+    after.src = that.data.resultPath;
   },
 
   // 换下一张：只清图片与框，保留框架/提示词/授权
