@@ -65,12 +65,13 @@ def _encode_png(image: Image.Image) -> bytes:
 # 提示词意图解析：规则与小程序 utils/prompt.js 保持一致
 # ============================================================
 PROMPT_RULES = [
+    (re.compile(r"水印相机|打卡|时间戳|日期水印|地点水印|时间水印|拍照水印"), "文字水印笔画", "text"),
     (re.compile(r"纹理|衣物|衣服|衣料|布料|条纹|木纹|草地|毛发|织物|褶皱"), "衣物/背景纹理", "texture"),
     (re.compile(r"渐变|纯色|单色|天空|白墙|干净背景"), "周围背景渐变", "smart"),
     (re.compile(r"背景|墙面|地面|周围"), "周围背景", "smart"),
     (re.compile(r"快速|平均|取色|小面积|纯色块"), "边缘平均色", "average"),
 ]
-FRAMEWORK_LABEL = {"smart": "智能扩散", "texture": "纹理重建", "average": "快速填充"}
+FRAMEWORK_LABEL = {"smart": "智能扩散", "texture": "纹理重建", "average": "快速填充", "text": "文字水印"}
 _PROMPT_TARGET_PATTERNS = [
     re.compile(r"(?:框住|框选|圈住|选中)的?([^，,。；;（）()]{1,24})"),
     re.compile(r"(?:要去掉|要去除|要擦除|去掉|去除)的?([^，,。；;（）()]{1,24})"),

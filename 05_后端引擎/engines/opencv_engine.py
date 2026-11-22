@@ -182,6 +182,58 @@ class OpenCVEngine(BaseEngine):
         out[y1:y2, x1:x2] = np.clip(mean, 0, 255).astype(bgr.dtype)
         return out
 
+    # ---------------- 文字水印去除（framework=text，大学生打卡水印专用） ----------------
+    @staticmethod
+    def _text_watermark_remove(bgr: np.ndarray, rects: list[dict]) -> np.ndarray:
+        """去除照片上的文字水印（水印相机的时间/地点/App 字样）。
+
+        原理：白字普遍带右下投影，传统 inpaint 只取字身会把投影采回形成灰影。
+        这里用白帽(top-hat)抓亮字身，再按固定规律向四周偏移膨胀覆盖投影，
+        用 Navier-Stokes 扩散小半径修复。只处理检测到的笔画像素，背景光影
+        与边缘完整保留——与整框抹平的 average/smart 不同，不留矩形补丁。
+
+        对渐变/平滑背景上的白字效果最好；复杂照片上的水印仍可能留淡影，
+        这是无 AI 模型时的能力上限。
+        """
+        out = bgr.copy()
+        h, w = bgr.shape[:2]
+        gray = cv2.cvtColor(bgr, cv2.COLOR_BGR2GRAY)
+        # 白帽：抓比周围亮的文字笔画（13x13 结构元足够覆盖常见字号）
+        tophat = cv2.morphologyEx(
+            gray, cv2.MORPH_TOPHAT,
+            cv2.getStructuringElement(cv2.MORPH_RECT, (13, 13)),
+        )
+        # 投影是暗的，用黑帽补充抓取，覆盖带描边的水印
+        blackhat = cv2.morphologyEx(
+            gray, cv2.MORPH_BLACKHAT,
+            cv2.getStructuringElement(cv2.MORPH_RECT, (9, 9)),
+        )
+        stroke = cv2.bitwise_or(
+            (tophat > 14).astype(np.uint8) * 255,
+            (blackhat > 20).astype(np.uint8) * 255,
+        )
+        all_mask = np.zeros((h, w), np.uint8)
+        for r in rects:
+            x1 = max(0, int(r.get("x", 0)))
+            y1 = max(0, int(r.get("y", 0)))
+            x2 = min(w, int(r.get("x", 0) + r.get("w", 0)))
+            y2 = min(h, int(r.get("y", 0) + r.get("h", 0)))
+            if x2 > x1 and y2 > y1:
+                all_mask[y1:y2, x1:x2] = stroke[y1:y2, x1:x2]
+        if not all_mask.any():
+            return out
+        core = cv2.dilate(all_mask, cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5)), 1)
+        # 覆盖右下投影：多方向偏移叠加（水印投影固定偏右下）
+        full = core.copy()
+        for dy in (1, 2, 3, 4):
+            for dx in (-2, -1, 0, 1, 2):
+                full = cv2.bitwise_or(full, np.roll(np.roll(core, dy, axis=0), dx, axis=1))
+        repaired = cv2.inpaint(bgr, full, 3, cv2.INPAINT_NS)
+        # 只写回检测到的笔画区，笔画像外一律保留原图（背景零损伤）
+        write = full > 0
+        out[write] = repaired[write]
+        return out
+
     # ---------------- 智能整框重建（framework=smart，对齐 HTML smartFill） ----------------
     def _smart_fill(
         self,
@@ -280,9 +332,10 @@ class OpenCVEngine(BaseEngine):
         method: ``auto``（默认，智能选择）/ ``texture``（纹理融合）/
         ``telea`` / ``ns``（经典扩散）。
 
-        framework: ``smart`` / ``texture`` / ``average``（与权威 HTML 三模式一致）。
+        framework: ``smart`` / ``texture`` / ``average`` / ``text``。
         ``smart`` 走整框智能重建（渐变用 Coons、纯色/照片用 Telea），能去除
-        半透明抗锯齿文字；``texture`` 走纹理融合；``average`` 走边缘平均色平铺。
+        半透明抗锯齿文字；``texture`` 走纹理融合；``average`` 走边缘平均色平铺；
+        ``text`` 为文字水印专用（白帽检测笔画+覆盖投影+NS修复，背景零损伤）。
         传 ``None`` 时保持旧 method 行为（兼容既有调用与测试）。
         """
         t0 = time.perf_counter()
@@ -315,16 +368,19 @@ class OpenCVEngine(BaseEngine):
             detection = self.detect_content(image, rects[0])
             actual_method = detection["suggest_method"]
 
-        # framework 驱动（与权威 HTML 三模式一致）：让所选框架真正决定算法。
-        # smart 走整框智能重建，可去除半透明抗锯齿文字；texture 走笔画级纹理融合；
-        # average 走边缘平均色平铺。framework=None 时保持旧行为。
-        if framework in ("smart", "texture", "average") and rects:
+        # framework 驱动：让所选框架真正决定算法。
+        # smart 走整框智能重建；texture 走笔画级纹理融合；average 走边缘平均色平铺；
+        # text 为照片文字水印专用（背景零损伤）。framework=None 时保持旧行为。
+        if framework in ("smart", "texture", "average", "text") and rects:
             actual_method = framework
             if framework == "smart":
                 detection = detection or self.detect_content(image, rects[0])
 
         texture_strategy = None
-        if actual_method == "average":
+        if actual_method == "text":
+            result_bgr = self._text_watermark_remove(bgr, rects)
+            used_flag = cv2.INPAINT_NS
+        elif actual_method == "average":
             result_bgr = bgr.copy()
             for r in rects:
                 x1 = max(0, int(r.get("x", 0)))

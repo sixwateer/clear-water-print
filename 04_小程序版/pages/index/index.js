@@ -74,12 +74,14 @@ Page({
     framework: 'smart',
     frameworks: [
       { key: 'smart', label: '智能扩散', tag: '推荐' },
+      { key: 'text', label: '文字水印', tag: '打卡照片' },
       { key: 'texture', label: '纹理重建', tag: '衣物/木纹' },
       { key: 'average', label: '快速填充', tag: '最快' },
       { key: 'prompt', label: '提示词引导', tag: '按描述' }
     ],
     frameworkDesc: {
       smart: '智能扩散：依据框外背景颜色向内推算，纯色/渐变背景近乎无痕',
+      text: '文字水印：去除水印相机的时间/地点文字，保留背景光影不留补丁',
       texture: '纹理重建：扩散重建后回注邻近衣物/木纹高频，纹理背景不糊成平色',
       average: '快速填充：取边缘平均色平铺，适合面积很小、背景单一的目标',
       prompt: '提示词引导：按你输入的描述自动选择框架；未写提示词时用智能扩散'

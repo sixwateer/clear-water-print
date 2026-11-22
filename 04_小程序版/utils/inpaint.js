@@ -185,6 +185,10 @@ function _laplaceScaled(data, W, H, x, y, w, h, iters, pad, scale) {
 function repair(imageData, rects, mode, iters) {
   const data = imageData.data, W = imageData.width, H = imageData.height;
   const nIters = iters || 240;
+  if (mode === 'text') {
+    textWatermarkRemove(imageData, rects);
+    return imageData;
+  }
   rects.forEach(function (r) {
     // 自动外扩修复框：水印的抗锯齿边缘与投影阴影通常落在用户框外一圈，
     // 不覆盖会在修复区边界留下白边/残影。外扩量按框尺寸自适应（3~12px）。
@@ -245,6 +249,108 @@ function repairStrict(imageData, rects, mode, iters, opts) {
 }
 
 /**
+ * 文字水印去除（text 框架专用，纯本地）：只修复检测到的文字笔画像素，
+ * 背景光影与边缘完整保留——不像整框扩散那样留下矩形补丁。
+ *
+ * 原理：水印相机类文字普遍是"亮字+暗投影"。用局部对比检测亮字身，
+ * 再按固定规律向四周膨胀覆盖投影，最后对 mask 区做拉普拉斯扩散
+ * （以 mask 外的真实背景为边界条件）。因为只改笔画像素，掌托斜边、
+ * 光影、纹理都不受影响。
+ *
+ * 对平滑/渐变背景上的文字水印效果最好；复杂照片上可能留淡影，
+ * 这是无 AI 模型时的能力上限。
+ *
+ * @param {ImageData} imageData
+ * @param {Array} rects 原图像素坐标框
+ */
+function textWatermarkRemove(imageData, rects) {
+  const data = imageData.data, W = imageData.width, H = imageData.height;
+  if (!rects || !rects.length) return imageData;
+  // 灰度
+  const gray = new Float32Array(W * H);
+  for (let i = 0, p = 0; i < gray.length; i++, p += 4) {
+    gray[i] = data[p] * 0.299 + data[p + 1] * 0.587 + data[p + 2] * 0.114;
+  }
+  // 检测笔画 mask：白帽(亮于局部均值) + 黑帽(暗于局部均值，抓描边/投影)
+  const R = 6; // 局部窗口半径
+  const mask = new Uint8Array(W * H);
+  for (let k = 0; k < rects.length; k++) {
+    const r = rects[k];
+    const x1 = Math.max(0, Math.round(r.x)), y1 = Math.max(0, Math.round(r.y));
+    const x2 = Math.min(W, Math.round(r.x + r.w)), y2 = Math.min(H, Math.round(r.y + r.h));
+    for (let yy = y1; yy < y2; yy++) {
+      for (let xx = x1; xx < x2; xx++) {
+        let sum = 0, cnt = 0;
+        for (let dy = -R; dy <= R; dy += 2) for (let dx = -R; dx <= R; dx += 2) {
+          const sx = xx + dx, sy = yy + dy;
+          if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue;
+          sum += gray[sy * W + sx]; cnt++;
+        }
+        const mean = sum / (cnt || 1);
+        const g = gray[yy * W + xx];
+        // 只抓亮字身（水印相机是白字）；暗描边不抓，否则投影区被过度扩张
+        if (g - mean > 20) mask[yy * W + xx] = 1;
+      }
+    }
+  }
+  // 膨胀：覆盖抗锯齿边缘 + 右下投影（水印投影固定偏右下，重点覆盖该方向）
+  const expanded = new Uint8Array(mask);
+  const offsets = [[1,0],[-1,0],[0,1],[0,-1],[1,1],[2,2],[1,2],[2,1],[3,2]];
+  for (let yy = 0; yy < H; yy++) for (let xx = 0; xx < W; xx++) {
+    if (mask[yy * W + xx]) { expanded[yy * W + xx] = 1; continue; }
+    for (let o = 0; o < offsets.length; o++) {
+      const sy = yy - offsets[o][0], sx = xx - offsets[o][1];
+      if (sy >= 0 && sy < H && sx >= 0 && sx < W && mask[sy * W + sx]) { expanded[yy * W + xx] = 1; break; }
+    }
+  }
+  // 对 mask 区做拉普拉斯扩散（mask 外真实背景为边界）
+  const wrk = new Float32Array(data.length);
+  for (let i = 0; i < wrk.length; i++) wrk[i] = data[i];
+  // 先把 mask 内像素初始化为周边干净背景均值，避免字身色参与前几次迭代
+  for (let i = 0; i < expanded.length; i++) {
+    if (!expanded[i]) continue;
+    const xx = i % W, yy = (i / W) | 0, c = i * 4;
+    let r = 0, g = 0, b = 0, n = 0;
+    for (let dy = -8; dy <= 8; dy += 2) for (let dx = -8; dx <= 8; dx += 2) {
+      const sx = xx + dx, sy = yy + dy;
+      if (sx < 0 || sx >= W || sy < 0 || sy >= H) continue;
+      const j = sy * W + sx;
+      if (expanded[j]) continue;
+      r += data[j * 4]; g += data[j * 4 + 1]; b += data[j * 4 + 2]; n++;
+    }
+    if (n) { wrk[c] = r / n; wrk[c + 1] = g / n; wrk[c + 2] = b / n; }
+  }
+  for (let it = 0; it < 80; it++) {
+    for (let k = 0; k < rects.length; k++) {
+      const r = rects[k];
+      const x1 = Math.max(1, Math.round(r.x)), y1 = Math.max(1, Math.round(r.y));
+      const x2 = Math.min(W - 1, Math.round(r.x + r.w)), y2 = Math.min(H - 1, Math.round(r.y + r.h));
+      for (let yy = y1; yy < y2; yy++) for (let xx = x1; xx < x2; xx++) {
+        const idx = yy * W + xx;
+        if (!expanded[idx]) continue;
+        const c = idx * 4;
+        for (let ch = 0; ch < 3; ch++) {
+          wrk[c + ch] = (wrk[c - 4 + ch] + wrk[c + 4 + ch] + wrk[c - W * 4 + ch] + wrk[c + W * 4 + ch]) * 0.25;
+        }
+      }
+    }
+  }
+  // 只写回「原框内 ∩ mask 区」：膨胀可越过框边界，但框外像素一个字节不动
+  for (let k = 0; k < rects.length; k++) {
+    const r = rects[k];
+    const x1 = Math.max(0, Math.round(r.x)), y1 = Math.max(0, Math.round(r.y));
+    const x2 = Math.min(W, Math.round(r.x + r.w)), y2 = Math.min(H, Math.round(r.y + r.h));
+    for (let yy = y1; yy < y2; yy++) for (let xx = x1; xx < x2; xx++) {
+      const i = yy * W + xx;
+      if (!expanded[i]) continue;
+      const c = i * 4;
+      data[c] = wrk[c]; data[c + 1] = wrk[c + 1]; data[c + 2] = wrk[c + 2];
+    }
+  }
+  return imageData;
+}
+
+/**
  * 纹理细节回注：从框外紧邻的背景/衣物行取高频，按距离衰减叠加到框内。
  * 扩散结果是平滑的，回注高频后纹理背景不会变成一块“塑料平色”。
  * 采样行在框外，未被修复改写，因此回注的确实是原图的背景纹理。
@@ -282,4 +388,4 @@ function injectTextureDetail(work, W, H, x, y, w, h) {
   }
 }
 
-module.exports = { repair, repairStrict, injectTextureDetail, laplaceFill, averageFill };
+module.exports = { repair, repairStrict, injectTextureDetail, laplaceFill, averageFill, textWatermarkRemove };

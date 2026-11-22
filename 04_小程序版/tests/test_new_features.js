@@ -73,6 +73,22 @@ check('repairStrict：框外像素逐字节不变（texture 含高频回注）',
   assert.deepStrictEqual(snapshotOutside(img, RECT), before);
 });
 
+check('text 文字水印框架：框外像素逐字节不变', function () {
+  const img = makeImage(64, 56, RECT);
+  const before = snapshotOutside(img, RECT);
+  inpaint.repair(img, [RECT], 'text', 240);
+  assert.deepStrictEqual(snapshotOutside(img, RECT), before);
+});
+
+check('text 文字水印框架：框内亮字被削弱且可导出调用', function () {
+  assert.strictEqual(typeof inpaint.textWatermarkRemove, 'function', '应导出 textWatermarkRemove');
+  const img = makeImage(64, 56, RECT);
+  const before = watermarkPixels(img, RECT);
+  inpaint.repair(img, [RECT], 'text', 240);
+  const after = watermarkPixels(img, RECT);
+  assert.ok(after < before, '亮字点应减少：' + before + ' -> ' + after);
+});
+
 check('repairStrict：框内水印被去净（残影 0）', function () {
   const img = makeImage(64, 56, RECT);
   const before = watermarkPixels(img, RECT);

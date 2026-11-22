@@ -11,6 +11,7 @@ var EXAMPLE = '我要去掉的是框住的蓝色包（包蓝蓝.png 中人物的
 
 // 补全依据 → 框架。顺序即优先级：纹理最难，优先命中后不被"背景"覆盖。
 var RULES = [
+  { re: /水印相机|打卡|时间戳|日期水印|地点水印|时间水印|拍照水印/, fill: '文字水印笔画', framework: 'text' },
   { re: /纹理|衣物|衣服|衣料|布料|条纹|木纹|草地|毛发|织物|褶皱/, fill: '衣物/背景纹理', framework: 'texture' },
   { re: /渐变|纯色|单色|天空|白墙|干净背景/, fill: '周围背景渐变', framework: 'smart' },
   { re: /背景|墙面|地面|周围/, fill: '周围背景', framework: 'smart' },
@@ -19,6 +20,7 @@ var RULES = [
 
 var FRAMEWORK_LABEL = {
   smart: '智能扩散',
+  text: '文字水印',
   texture: '纹理重建',
   average: '快速填充'
 };
